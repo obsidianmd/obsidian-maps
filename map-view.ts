@@ -918,7 +918,7 @@ export class MapView extends BasesView {
 	static getViewOptions(): ViewOption[] {
 		return [
 			{
-				displayName: 'Embedded height',
+				displayName: i18nMap.labelMapHeight(),
 				type: 'slider',
 				key: 'mapHeight',
 				min: 200,
@@ -927,70 +927,89 @@ export class MapView extends BasesView {
 				default: DEFAULT_MAP_HEIGHT,
 			},
 			{
-				displayName: 'Center coordinates',
-				type: 'text',
-				key: 'center',
-				placeholder: '37.75904, -119.02042',
+				displayName: 'Display',
+				type: 'group',
+				items: [
+
+					{
+						displayName: i18nMap.labelCenter(),
+						type: 'text',
+						key: 'center',
+						placeholder: '37.75904, -119.02042',
+					},
+					{
+						displayName: i18nMap.labelDefaultZoom(),
+						type: 'slider',
+						key: 'defaultZoom',
+						min: 1,
+						max: 18,
+						step: 1,
+						default: DEFAULT_MAP_ZOOM,
+					},
+					{
+						displayName: i18nMap.labelMinZoom(),
+						type: 'slider',
+						key: 'minZoom',
+						min: 0,
+						max: 24,
+						step: 1,
+						default: 0,
+					},
+					{
+						displayName: i18nMap.labelMaxZoom(),
+						type: 'slider',
+						key: 'maxZoom',
+						min: 0,
+						max: 24,
+						step: 1,
+						default: 18,
+					},
+				]
 			},
 			{
-				displayName: 'Default zoom',
-				type: 'slider',
-				key: 'defaultZoom',
-				min: 1,
-				max: 18,
-				step: 1,
-				default: DEFAULT_MAP_ZOOM,
+				displayName: 'Markers',
+				type: 'group',
+				items: [
+					{
+						displayName: i18nMap.labelCoordinatesProperty(),
+						type: 'property',
+						key: 'coordinates',
+						filter: prop => !prop.startsWith('file.'),
+						placeholder: i18n.plugins.bases.labelPropertyKey(),
+					},
+					{
+						displayName: i18nMap.labelIconProperty(),
+						type: 'property',
+						key: 'markerIcon',
+						filter: prop => !prop.startsWith('file.'),
+						placeholder: i18n.plugins.bases.labelPropertyKey(),
+					},
+					{
+						displayName: i18nMap.labelColorProperty(),
+						type: 'property',
+						key: 'markerColor',
+						filter: prop => !prop.startsWith('file.'),
+						placeholder: i18n.plugins.bases.labelPropertyKey(),
+					},
+				]
 			},
 			{
-				displayName: 'Minimum zoom',
-				type: 'slider',
-				key: 'minZoom',
-				min: 0,
-				max: 24,
-				step: 1,
-				default: 0,
-			},
-			{
-				displayName: 'Maximum zoom',
-				type: 'slider',
-				key: 'maxZoom',
-				min: 0,
-				max: 24,
-				step: 1,
-				default: 18,
-			},
-			{
-				displayName: 'Marker coordinates',
-				type: 'property',
-				key: 'coordinates',
-				filter: prop => !prop.startsWith('file.'),
-				placeholder: 'Property key',
-			},
-			{
-				displayName: 'Marker icon',
-				type: 'property',
-				key: 'markerIcon',
-				filter: prop => !prop.startsWith('file.'),
-				placeholder: 'Property key',
-			},
-			{
-				displayName: 'Marker color',
-				type: 'property',
-				key: 'markerColor',
-				filter: prop => !prop.startsWith('file.'),
-				placeholder: 'Property key',
-			},
-			{
-				displayName: 'Map tiles',
-				type: 'text',
-				key: 'mapTiles',
-				placeholder: 'https://',
-			},
-			{
-				displayName: 'Map tiles in dark mode',
-				type: 'text',
-				key: 'mapTilesDark',
-				placeholder: 'https://',
+				displayName: 'Background',
+				type: 'group',
+				items: [
+					{
+						displayName: i18nMap.labelMapTiles(),
+						type: 'text',
+						key: 'mapTiles',
+						placeholder: 'https://',
+					},
+					{
+						displayName: i18nMap.labelMapTilesDark(),
+						type: 'text',
+						key: 'mapTilesDark',
+						placeholder: 'https://',
+					},
+				]
 			},
 		];
 	}
