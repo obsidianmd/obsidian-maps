@@ -901,7 +901,7 @@ export class MapView extends BasesView {
 	static getViewOptions(): ViewOption[] {
 		return [
 			{
-				displayName: i18nMap.labelMapHeight(),
+				displayName: 'Embedded height',
 				type: 'slider',
 				key: 'mapHeight',
 				min: 200,
@@ -915,13 +915,13 @@ export class MapView extends BasesView {
 				items: [
 
 					{
-						displayName: i18nMap.labelCenter(),
+						displayName: 'Center coordinates',
 						type: 'text',
 						key: 'center',
 						placeholder: '37.75904, -119.02042',
 					},
 					{
-						displayName: i18nMap.labelDefaultZoom(),
+						displayName: 'Default zoom',
 						type: 'slider',
 						key: 'defaultZoom',
 						min: 1,
@@ -930,7 +930,7 @@ export class MapView extends BasesView {
 						default: DEFAULT_MAP_ZOOM,
 					},
 					{
-						displayName: i18nMap.labelMinZoom(),
+						displayName: 'Minimum zoom',
 						type: 'slider',
 						key: 'minZoom',
 						min: 0,
@@ -939,7 +939,7 @@ export class MapView extends BasesView {
 						default: 0,
 					},
 					{
-						displayName: i18nMap.labelMaxZoom(),
+						displayName: 'Maximum zoom',
 						type: 'slider',
 						key: 'maxZoom',
 						min: 0,
@@ -954,25 +954,25 @@ export class MapView extends BasesView {
 				type: 'group',
 				items: [
 					{
-						displayName: i18nMap.labelCoordinatesProperty(),
+						displayName: 'Marker coordinates',
 						type: 'property',
 						key: 'coordinates',
 						filter: prop => !prop.startsWith('file.'),
-						placeholder: i18n.plugins.bases.labelPropertyKey(),
+						placeholder: 'Property',
 					},
 					{
-						displayName: i18nMap.labelIconProperty(),
+						displayName: 'Marker icon',
 						type: 'property',
 						key: 'markerIcon',
 						filter: prop => !prop.startsWith('file.'),
-						placeholder: i18n.plugins.bases.labelPropertyKey(),
+						placeholder: 'Property',
 					},
 					{
-						displayName: i18nMap.labelColorProperty(),
+						displayName: 'Marker color',
 						type: 'property',
 						key: 'markerColor',
 						filter: prop => !prop.startsWith('file.'),
-						placeholder: i18n.plugins.bases.labelPropertyKey(),
+						placeholder: 'Property',
 					},
 				]
 			},
@@ -981,13 +981,13 @@ export class MapView extends BasesView {
 				type: 'group',
 				items: [
 					{
-						displayName: i18nMap.labelMapTiles(),
+						displayName: 'Map tiles',
 						type: 'text',
 						key: 'mapTiles',
 						placeholder: 'https://',
 					},
 					{
-						displayName: i18nMap.labelMapTilesDark(),
+						displayName: 'Map tiles in dark mode',
 						type: 'text',
 						key: 'mapTilesDark',
 						placeholder: 'https://',
