@@ -1,13 +1,17 @@
-import { ListValue, NumberValue, StringValue } from 'obsidian';
-import { decodePropertyId } from 'obsidian';
-import { QueryController } from 'obsidian';
-import { BasesEntry, BasesPropertyId } from 'obsidian';
-import { BasesView } from 'obsidian';
-import { ViewOption } from 'obsidian';
-import { Menu } from 'obsidian';
-import { setIcon } from 'obsidian';
-import { isDelegatedMouseover } from 'obsidian';
-import { Keymap } from 'obsidian';
+import {
+	BasesEntry,
+	BasesPropertyId,
+	BasesView,
+	Keymap,
+	ListValue,
+	Menu,
+	NumberValue,
+	QueryController,
+	StringValue,
+	ViewOption,
+	isDelegatedMouseover,
+	setIcon,
+} from 'obsidian';
 import * as maplibregl from 'maplibre-gl';
 
 export const MapViewType = 'map';
@@ -202,10 +206,10 @@ export class MapView extends BasesView {
 	private loadConfig(): void {
 
 		// Load property configurations
-		this.coordinatesProp = this.getPropertyFromConfig('coordinates');
-		this.markerIconProp = this.getPropertyFromConfig('markerIcon');
-		this.markerColorProp = this.getPropertyFromConfig('markerColor');
-		
+		this.coordinatesProp = this.config.getAsPropertyId('coordinates');
+		this.markerIconProp = this.config.getAsPropertyId('markerIcon');
+		this.markerColorProp = this.config.getAsPropertyId('markerColor');
+
 		// Load numeric configurations with validation
 		this.minZoom = this.getNumericConfig('minZoom', 0, 0, 24);
 		this.maxZoom = this.getNumericConfig('maxZoom', 18, 0, 24);
@@ -225,11 +229,6 @@ export class MapView extends BasesView {
 
 		// Apply configurations to existing map
 		this.applyConfigToMap();
-	}
-
-	private getPropertyFromConfig(key: string): BasesPropertyId | null {
-		const value = this.config.get(key);
-		return (value && String.isString(value)) ? decodePropertyId(value) : null;
 	}
 
 	private getNumericConfig(key: string, defaultValue: number, min?: number, max?: number): number {
