@@ -9,7 +9,6 @@ import {
 	QueryController,
 	StringValue,
 	ViewOption,
-	isDelegatedMouseover,
 	setIcon,
 } from 'obsidian';
 import * as maplibregl from 'maplibre-gl';
@@ -999,4 +998,15 @@ export class MapView extends BasesView {
 			},
 		];
 	}
+}
+
+function isDelegatedMouseover(evt: MouseEvent | DragEvent, target: HTMLElement) {
+	const relatedTarget = evt.relatedTarget;
+	if (relatedTarget) {
+		if (target.contains(relatedTarget as Node)) {
+			return false;
+		}
+	}
+
+	return true;
 }
