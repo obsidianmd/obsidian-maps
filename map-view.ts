@@ -609,8 +609,6 @@ export class MapView extends BasesView {
 		const customIcon = this.getCustomIcon(entry);
 		const customColor = this.getCustomColor(entry);
 
-		let marker: maplibregl.Marker;
-
 		const markerContainer = createDiv('bases-map-custom-marker');
 
 		const shadowDiv = createDiv('bases-map-marker-shadow');
@@ -636,7 +634,7 @@ export class MapView extends BasesView {
 			markerContainer.appendChild(dotElement);
 		}
 
-		marker = new maplibregl.Marker({
+		const marker = new maplibregl.Marker({
 			element: markerContainer
 		})
 			.setLngLat([lng, lat])
