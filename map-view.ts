@@ -36,7 +36,7 @@ class CustomZoomControl {
 			attr: { 'aria-label': 'Zoom in' }
 		});
 		setIcon(zoomInButton, 'lucide-plus');
-		
+
 		zoomInButton.addEventListener('click', () => {
 			this.map.zoomIn();
 		});
@@ -47,7 +47,7 @@ class CustomZoomControl {
 			attr: { 'aria-label': 'Zoom out' }
 		});
 		setIcon(zoomOutButton, 'lucide-minus');
-		
+
 		zoomOutButton.addEventListener('click', () => {
 			this.map.zoomOut();
 		});
@@ -68,7 +68,7 @@ export class MapView extends BasesView {
 	scrollEl: HTMLElement;
 	containerEl: HTMLElement;
 	mapEl: HTMLElement;
-	
+
 	// Internal rendering data
 	private map: maplibregl.Map | null = null;
 	private markers: MapMarker[] = [];
@@ -78,8 +78,8 @@ export class MapView extends BasesView {
 	private mapHeight: number = DEFAULT_MAP_HEIGHT;
 	private defaultZoom: number = DEFAULT_MAP_ZOOM;
 	private center: [number, number] = DEFAULT_MAP_CENTER;
-	private maxZoom: number = 18; // MapLibre default
-	private minZoom: number = 0;  // MapLibre default
+	private maxZoom = 18; // MapLibre default
+	private minZoom = 0;  // MapLibre default
 	private mapTiles: string[] = []; // Custom tile URLs for light mode
 	private mapTilesDark: string[] = []; // Custom tile URLs for dark mode
 	private pendingMapState: { center: any, zoom: number } | null = null;
@@ -200,7 +200,7 @@ export class MapView extends BasesView {
 	}
 
 	private loadConfig(): void {
-		
+
 		// Load property configurations
 		this.coordinatesProp = this.getPropertyFromConfig('coordinates');
 		this.markerIconProp = this.getPropertyFromConfig('markerIcon');
@@ -210,19 +210,19 @@ export class MapView extends BasesView {
 		this.minZoom = this.getNumericConfig('minZoom', 0, 0, 24);
 		this.maxZoom = this.getNumericConfig('maxZoom', 18, 0, 24);
 		this.defaultZoom = this.getNumericConfig('defaultZoom', DEFAULT_MAP_ZOOM, this.minZoom, this.maxZoom);
-		
+
 		// Load center coordinates
 		this.center = this.getCenterFromConfig();
-		
+
 		// Load map height for embedded views
-		this.mapHeight = this.isEmbedded() 
+		this.mapHeight = this.isEmbedded()
 			? this.getNumericConfig('mapHeight', DEFAULT_MAP_HEIGHT, 100, 2000)
 			: DEFAULT_MAP_HEIGHT;
-		
+
 		// Load map tiles configurations
 		this.mapTiles = this.getArrayConfig('mapTiles');
 		this.mapTilesDark = this.getArrayConfig('mapTilesDark');
-		
+
 		// Apply configurations to existing map
 		this.applyConfigToMap();
 	}
@@ -235,7 +235,7 @@ export class MapView extends BasesView {
 	private getNumericConfig(key: string, defaultValue: number, min?: number, max?: number): number {
 		const value = this.config.get(key);
 		if (!value || !Number.isNumber(value)) return defaultValue;
-		
+
 		let result = value;
 		if (min !== undefined) result = Math.max(min, result);
 		if (max !== undefined) result = Math.min(max, result);
@@ -245,17 +245,17 @@ export class MapView extends BasesView {
 	private getArrayConfig(key: string): string[] {
 		const value = this.config.get(key);
 		if (!value) return [];
-		
+
 		// Handle array values
 		if (Array.isArray(value)) {
 			return value.filter(item => typeof item === 'string' && item.trim().length > 0);
 		}
-		
+
 		// Handle single string value
 		if (typeof value === 'string' && value.trim().length > 0) {
 			return [value.trim()];
 		}
-		
+
 		return [];
 	}
 
@@ -264,7 +264,7 @@ export class MapView extends BasesView {
 		if (!centerConfig || !String.isString(centerConfig)) {
 			return DEFAULT_MAP_CENTER;
 		}
-		
+
 		const parts = centerConfig.trim().split(',');
 		if (parts.length >= 2) {
 			const lat = parseFloat(parts[0].trim());
@@ -282,14 +282,14 @@ export class MapView extends BasesView {
 		// Update map constraints
 		this.map.setMinZoom(this.minZoom);
 		this.map.setMaxZoom(this.maxZoom);
-		
+
 		// Update map style if tiles configuration changed
 		const newStyle = this.getMapStyle();
 		const currentStyle = this.map.getStyle();
 		if (JSON.stringify(newStyle) !== JSON.stringify(currentStyle)) {
 			this.map.setStyle(newStyle as any);
 		}
-		
+
 		// Update map height for embedded views
 		if (this.isEmbedded()) {
 			this.mapEl.style.height = this.mapHeight + 'px';
@@ -297,7 +297,7 @@ export class MapView extends BasesView {
 		else {
 			this.mapEl.style.height = '';
 		}
-		
+
 		// Resize map after height changes
 		this.map.resize();
 	}
@@ -319,7 +319,7 @@ export class MapView extends BasesView {
 	private getMapStyle(): string | object {
 		const isDark = this.app.customCss.isDarkMode();
 		const tileUrls = isDark && this.mapTilesDark.length > 0 ? this.mapTilesDark : this.mapTiles;
-		
+
 		// If no custom tiles are configured, use default OpenFreeMap style
 		if (tileUrls.length === 0) {
 			return 'https://tiles.openfreemap.org/styles/bright';
@@ -365,7 +365,7 @@ export class MapView extends BasesView {
 		const clickedCoords = this.map.unproject(clickPoint);
 		const currentLat = Math.round(clickedCoords.lat * 100000) / 100000;
 		const currentLng = Math.round(clickedCoords.lng * 100000) / 100000;
-		
+
 		const menu = Menu.forEvent(evt).addSections([
 			'action',
 		]);
@@ -422,17 +422,17 @@ export class MapView extends BasesView {
 
 		// Create markers for entries with valid coordinates
 		this.createMarkersFromData();
-		
+
 		// Update map view based on markers
 		this.updateMapView();
-		
+
 		// Apply pending map state if available
 		this.applyPendingMapState();
 	}
 
 	private createMarkersFromData(): void {
 		const validMarkers: MapMarker[] = [];
-		
+
 		for (const entry of this.data.data) {
 			const coordinates = this.extractCoordinates(entry);
 			if (coordinates) {
@@ -505,7 +505,7 @@ export class MapView extends BasesView {
 
 		try {
 			const value = entry.getValue(this.coordinatesProp);
-			
+
 			if (!value) return null;
 
 			// Handle list values (e.g., ["34.1395597", "-118.3870991"])
@@ -566,7 +566,7 @@ export class MapView extends BasesView {
 
 			// Extract the icon name from the value
 			const iconString = value.toString().trim();
-			
+
 			// Handle null/empty/invalid cases - return null to show default marker
 			if (!iconString || iconString.length === 0 || iconString === 'null' || iconString === 'undefined') {
 				return null;
@@ -589,12 +589,12 @@ export class MapView extends BasesView {
 
 			// Extract the color value from the property
 			const colorString = value.toString().trim();
-			
+
 			// Handle null/empty/invalid cases - return null to use default CSS variable
 			if (!colorString || colorString.length === 0 || colorString === 'null' || colorString === 'undefined') {
 				return null;
 			}
-			
+
 			// Return the color as-is, let CSS handle validation
 			// Supports: hex (#ff0000), rgb/rgba, hsl/hsla, CSS color names, and CSS custom properties (var(--color-name))
 			return colorString;
@@ -613,7 +613,7 @@ export class MapView extends BasesView {
 		// Get custom icon and color if configured
 		const customIcon = this.getCustomIcon(entry);
 		const customColor = this.getCustomColor(entry);
-		
+
 		let marker: maplibregl.Marker;
 
 		const markerContainer = createDiv('bases-map-custom-marker');
@@ -640,7 +640,7 @@ export class MapView extends BasesView {
 			const dotElement = createDiv('bases-map-marker-dot');
 			markerContainer.appendChild(dotElement);
 		}
-		
+
 		marker = new maplibregl.Marker({
 			element: markerContainer
 		})
@@ -650,7 +650,7 @@ export class MapView extends BasesView {
 		marker.addClassName('bases-map-marker');
 
 		const markerEl = marker.getElement();
-		
+
 		// Set aria-label to file basename if no properties are configured, otherwise remove it
 		if (!this.data.properties || this.data.properties.length === 0) {
 			markerEl.setAttribute('aria-label', entry.file.basename);
@@ -675,7 +675,7 @@ export class MapView extends BasesView {
 		// Handle click events - similar to cards view
 		markerEl.addEventListener('click', (evt) => {
 			// Don't block external links
-			let target = evt.target as Element;
+			const target = evt.target as Element;
 			if (target?.closest && target.closest('a')) return;
 
 			void this.app.workspace.openLinkText(entry.file.path, '', Keymap.isModEvent(evt));
@@ -683,8 +683,8 @@ export class MapView extends BasesView {
 
 
 		markerEl.addEventListener('contextmenu', (evt) => {
-			let file = entry.file;
-			let menu = Menu.forEvent(evt).addSections([
+			const file = entry.file;
+			const menu = Menu.forEvent(evt).addSections([
 				'title',
 				'open',
 				'action-primary',
@@ -733,14 +733,14 @@ export class MapView extends BasesView {
 
 	private createPopupContent(entry: BasesEntry): HTMLElement {
 		const container = createDiv('bases-map-popup');
-		
+
 		// Get properties that have values
 		const properties = this.data.properties.slice(0, 20); // Max 20 properties
 		const propertiesWithValues = [];
-		
+
 		for (const prop of properties) {
 			if (prop === this.coordinatesProp || prop === this.markerIconProp || prop === this.markerColorProp) continue; // Skip coordinates, marker icon, and marker color properties
-			
+
 			try {
 				const value = entry.getValue(prop);
 				if (value && this.hasNonEmptyValue(value)) {
@@ -751,27 +751,27 @@ export class MapView extends BasesView {
 				// Skip properties that can't be rendered
 			}
 		}
-		
+
 		// Use first property as title (still acts as a link to the file)
 		if (propertiesWithValues.length > 0) {
 			const firstProperty = propertiesWithValues[0];
 			const title = container.createDiv('bases-map-popup-title');
-			
+
 			// Create a clickable link that opens the file
 			const titleLink = title.createEl('a', {
 				href: '#',
 				cls: 'internal-link'
 			});
-			
+
 			// Render the first property value inside the link
 			firstProperty.value.renderTo(titleLink, this.app.renderContext);
-			
+
 			// Handle click to open file
 			titleLink.addEventListener('click', (evt) => {
 				evt.preventDefault();
 				void this.app.workspace.openLinkText(entry.file.path, '', Keymap.isModEvent(evt));
 			});
-			
+
 			// Show remaining properties (excluding the first one used as title)
 			const remainingProperties = propertiesWithValues.slice(1);
 			if (remainingProperties.length > 0) {
@@ -791,15 +791,15 @@ export class MapView extends BasesView {
 
 	private hasNonEmptyValue(value: any): boolean {
 		if (!value) return false;
-		
+
 		const stringValue = value.toString().trim();
 		if (!stringValue) return false;
-		
+
 		// Check for common empty values
 		if (stringValue === '[]' || stringValue === '{}' || stringValue === 'null' || stringValue === 'undefined') {
 			return false;
 		}
-		
+
 		// Handle ListValue - check if it has any non-empty items
 		if (value instanceof ListValue) {
 			for (let i = 0; i < value.length(); i++) {
@@ -810,16 +810,16 @@ export class MapView extends BasesView {
 			}
 			return false;
 		}
-		
+
 		return true;
 	}
 
 	private hasAnyPropertyValues(entry: BasesEntry): boolean {
 		const properties = this.data.properties.slice(0, 20); // Max 20 properties
-		
+
 		for (const prop of properties) {
 			if (prop === this.coordinatesProp || prop === this.markerIconProp || prop === this.markerColorProp) continue; // Skip coordinates, marker icon, and marker color properties
-			
+
 			try {
 				const value = entry.getValue(prop);
 				if (value && this.hasNonEmptyValue(value)) {
@@ -830,7 +830,7 @@ export class MapView extends BasesView {
 				// Skip properties that can't be rendered
 			}
 		}
-		
+
 		return false;
 	}
 
@@ -852,10 +852,10 @@ export class MapView extends BasesView {
 
 		// Create shared popup if it doesn't exist
 		if (!this.sharedPopup) {
-			this.sharedPopup = new maplibregl.Popup({ 
-				closeButton: false, 
+			this.sharedPopup = new maplibregl.Popup({
+				closeButton: false,
 				closeOnClick: false,
-				offset: 25 
+				offset: 25
 			});
 
 			// Add hover handlers to the popup itself
@@ -888,7 +888,7 @@ export class MapView extends BasesView {
 		if (this.popupHideTimeout) {
 			clearTimeout(this.popupHideTimeout);
 		}
-		
+
 		this.popupHideTimeout = window.setTimeout(() => {
 			if (this.sharedPopup) {
 				this.sharedPopup.remove();
@@ -906,7 +906,7 @@ export class MapView extends BasesView {
 
 	public getEphemeralState(): unknown {
 		if (!this.map) return {};
-		
+
 		return {
 			mapView: {
 				center: this.map.getCenter(),
