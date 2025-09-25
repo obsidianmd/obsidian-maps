@@ -315,7 +315,7 @@ export class MapView extends BasesView {
 
 
 	private getMapStyle(): string | object {
-		const isDark = this.app.customCss.isDarkMode();
+		const isDark = this.app.isDarkMode();
 		const tileUrls = isDark && this.mapTilesDark.length > 0 ? this.mapTilesDark : this.mapTiles;
 
 		// If no custom tiles are configured, use default OpenFreeMap style
@@ -696,7 +696,7 @@ export class MapView extends BasesView {
 				.setTitle('Delete file')
 				.setIcon('lucide-trash-2')
 				.setWarning(true)
-				.onClick(() => this.app.fileManager.promptForFileDeletion(file)));
+				.onClick(() => this.app.fileManager.promptForDeletion(file)));
 		});
 
 		// Handle hover for link preview - similar to cards view
