@@ -365,10 +365,7 @@ export class MapView extends BasesView {
 		const currentLat = Math.round(clickedCoords.lat * 100000) / 100000;
 		const currentLng = Math.round(clickedCoords.lng * 100000) / 100000;
 
-		const menu = Menu.forEvent(evt).addSections([
-			'action',
-		]);
-
+		const menu = Menu.forEvent(evt);
 		menu.addItem(item => item
 			.setTitle('Copy coordinates')
 			.setSection('action')
@@ -683,17 +680,7 @@ export class MapView extends BasesView {
 
 		markerEl.addEventListener('contextmenu', (evt) => {
 			const file = entry.file;
-			const menu = Menu.forEvent(evt).addSections([
-				'title',
-				'open',
-				'action-primary',
-				'action',
-				'info',
-				'view',
-				'system',
-				'',
-				'danger'
-			]);
+			const menu = Menu.forEvent(evt);
 
 			this.app.workspace.handleLinkContextMenu(menu, file.path, '');
 
