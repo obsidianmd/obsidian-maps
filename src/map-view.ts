@@ -694,7 +694,6 @@ export class MapView extends BasesView {
 
 		// Handle hover for link preview - similar to cards view
 		markerEl.addEventListener('mouseover', (evt) => {
-			if (!isDelegatedMouseover(evt, markerEl)) return;
 			this.app.workspace.trigger('hover-link', {
 				event: evt,
 				source: 'bases',
@@ -995,17 +994,6 @@ export class MapView extends BasesView {
 			},
 		];
 	}
-}
-
-function isDelegatedMouseover(evt: MouseEvent | DragEvent, target: HTMLElement) {
-	const relatedTarget = evt.relatedTarget;
-	if (relatedTarget) {
-		if (target.contains(relatedTarget as Node)) {
-			return false;
-		}
-	}
-
-	return true;
 }
 
 /** Wrapper for Object.hasOwn which performs type narrowing. */
