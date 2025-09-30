@@ -27,10 +27,8 @@ interface MapMarker {
 
 class CustomZoomControl {
 	private container: HTMLElement;
-	private map: maplibregl.Map;
 
 	onAdd(map: maplibregl.Map): HTMLElement {
-		this.map = map;
 		this.container = createDiv('maplibregl-ctrl maplibregl-ctrl-group');
 
 		const zoomInButton = this.container.createEl('button', {
@@ -41,7 +39,7 @@ class CustomZoomControl {
 		setIcon(zoomInButton, 'lucide-plus');
 
 		zoomInButton.addEventListener('click', () => {
-			this.map.zoomIn();
+			map.zoomIn();
 		});
 
 		const zoomOutButton = this.container.createEl('button', {
@@ -52,7 +50,7 @@ class CustomZoomControl {
 		setIcon(zoomOutButton, 'lucide-minus');
 
 		zoomOutButton.addEventListener('click', () => {
-			this.map.zoomOut();
+			map.zoomOut();
 		});
 
 		return this.container;
@@ -62,7 +60,6 @@ class CustomZoomControl {
 		if (this.container && this.container.parentNode) {
 			this.container.parentNode.removeChild(this.container);
 		}
-		this.map = undefined;
 	}
 }
 
