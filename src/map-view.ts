@@ -26,12 +26,14 @@ interface MapMarker {
 }
 
 class CustomZoomControl {
-	private container: HTMLElement;
+	private containerEl: HTMLElement;
+
+	constructor() {
+		this.containerEl = createDiv('maplibregl-ctrl maplibregl-ctrl-group');
+	}
 
 	onAdd(map: maplibregl.Map): HTMLElement {
-		this.container = createDiv('maplibregl-ctrl maplibregl-ctrl-group');
-
-		const zoomInButton = this.container.createEl('button', {
+		const zoomInButton = this.containerEl.createEl('button', {
 			type: 'button',
 			cls: 'maplibregl-ctrl-zoom-in',
 			attr: { 'aria-label': 'Zoom in' }
@@ -42,7 +44,7 @@ class CustomZoomControl {
 			map.zoomIn();
 		});
 
-		const zoomOutButton = this.container.createEl('button', {
+		const zoomOutButton = this.containerEl.createEl('button', {
 			type: 'button',
 			cls: 'maplibregl-ctrl-zoom-out',
 			attr: { 'aria-label': 'Zoom out' }
@@ -53,12 +55,12 @@ class CustomZoomControl {
 			map.zoomOut();
 		});
 
-		return this.container;
+		return this.containerEl;
 	}
 
 	onRemove(): void {
-		if (this.container && this.container.parentNode) {
-			this.container.parentNode.removeChild(this.container);
+		if (this.containerEl && this.containerEl.parentNode) {
+			this.containerEl.parentNode.removeChild(this.containerEl);
 		}
 	}
 }
