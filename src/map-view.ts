@@ -494,7 +494,7 @@ export class MapView extends BasesView {
 
 			if (!value) return null;
 
-			// Handle list values (e.g., ["34.1395597", "-118.3870991"])
+			// Handle list values (e.g., ["34.1395597", "-118.3870991"] or [34.1395597, -118.3870991])
 			if (value instanceof ListValue) {
 				if (value.length() >= 2) {
 					const lat = this.parseCoordinate(value.get(0));
@@ -504,9 +504,11 @@ export class MapView extends BasesView {
 					}
 				}
 			}
-			// Handle string values (e.g., "34.1395597,-118.3870991")
+			// Handle string values (e.g., "34.1395597,-118.3870991" or "34.1395597, -118.3870991")
 			else if (value instanceof StringValue) {
-				const stringData = value.toString();
+				const stringData = value.toString().trim();
+				
+				// Split by comma and handle various spacing
 				const parts = stringData.split(',');
 				if (parts.length >= 2) {
 					const lat = this.parseCoordinate(parts[0].trim());
