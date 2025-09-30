@@ -10,8 +10,9 @@ import {
 	StringValue,
 	ViewOption,
 	setIcon,
+	Value,
 } from 'obsidian';
-import * as maplibregl from 'maplibre-gl';
+import { LngLatBounds, LngLatLike, Map, Marker, Popup, StyleSpecification } from 'maplibre-gl';
 
 export const MapViewType = 'map';
 
@@ -21,7 +22,7 @@ const DEFAULT_MAP_ZOOM = 4;
 
 interface MapMarker {
 	entry: BasesEntry;
-	marker: maplibregl.Marker;
+	marker: Marker;
 	coordinates: [number, number];
 }
 
@@ -32,7 +33,7 @@ class CustomZoomControl {
 		this.containerEl = createDiv('maplibregl-ctrl maplibregl-ctrl-group');
 	}
 
-	onAdd(map: maplibregl.Map): HTMLElement {
+	onAdd(map: Map): HTMLElement {
 		const zoomInButton = this.containerEl.createEl('button', {
 			type: 'button',
 			cls: 'maplibregl-ctrl-zoom-in',
@@ -72,7 +73,7 @@ export class MapView extends BasesView {
 	mapEl: HTMLElement;
 
 	// Internal rendering data
-	private map: maplibregl.Map | null = null;
+	private map: Map | null = null;
 	private markers: MapMarker[] = [];
 	private coordinatesProp: BasesPropertyId | null = null;
 	private markerIconProp: BasesPropertyId | null = null;
@@ -84,8 +85,8 @@ export class MapView extends BasesView {
 	private minZoom = 0;  // MapLibre default
 	private mapTiles: string[] = []; // Custom tile URLs for light mode
 	private mapTilesDark: string[] = []; // Custom tile URLs for dark mode
-	private pendingMapState: { center: any, zoom: number } | null = null;
-	private sharedPopup: maplibregl.Popup | null = null;
+	private pendingMapState: { center: LngLatLike, zoom: number } | null = null;
+	private sharedPopup: Popup | null = null;
 	private popupHideTimeout: number | null = null;
 
 	constructor(controller: QueryController, scrollEl: HTMLElement) {
@@ -118,7 +119,7 @@ export class MapView extends BasesView {
 		if (this.map && (this.mapTiles.length > 0 || this.mapTilesDark.length > 0)) {
 			// Update map style when theme changes
 			const newStyle = this.getMapStyle();
-			this.map.setStyle(newStyle as any);
+			this.map.setStyle(newStyle);
 		}
 	};
 
@@ -136,9 +137,9 @@ export class MapView extends BasesView {
 		}
 
 		// Initialize MapLibre GL JS map with configured tiles or default style
-		this.map = new maplibregl.Map({
+		this.map = new Map({
 			container: this.mapEl,
-			style: this.getMapStyle() as any,
+			style: this.getMapStyle(),
 			center: [this.center[1], this.center[0]], // MapLibre uses [lng, lat]
 			zoom: this.defaultZoom,
 			minZoom: this.minZoom,
@@ -151,7 +152,7 @@ export class MapView extends BasesView {
 		this.map.on('load', () => {
 			// Only set center if we have non-default coordinates
 			if (this.center[0] !== 0 || this.center[1] !== 0) {
-				this.map.setCenter([this.center[1], this.center[0]]); // MapLibre uses [lng, lat]
+				this.map?.setCenter([this.center[1], this.center[0]]); // MapLibre uses [lng, lat]
 			}
 		});
 
@@ -284,7 +285,7 @@ export class MapView extends BasesView {
 		const newStyle = this.getMapStyle();
 		const currentStyle = this.map.getStyle();
 		if (JSON.stringify(newStyle) !== JSON.stringify(currentStyle)) {
-			this.map.setStyle(newStyle as any);
+			this.map.setStyle(newStyle);
 		}
 
 		// Update map height for embedded views
@@ -313,7 +314,7 @@ export class MapView extends BasesView {
 	}
 
 
-	private getMapStyle(): string | object {
+	private getMapStyle(): string | StyleSpecification {
 		const isDark = this.app.isDarkMode();
 		const tileUrls = isDark && this.mapTilesDark.length > 0 ? this.mapTilesDark : this.mapTiles;
 
@@ -323,33 +324,26 @@ export class MapView extends BasesView {
 		}
 
 		// Create a custom style with the configured tile sources
-		return this.createCustomMapStyle(tileUrls);
-	}
-
-	private createCustomMapStyle(tileUrls: string[]): object {
-		const sources: any = {};
-		const layers: any[] = [];
-
+		const spec: StyleSpecification = {
+			version: 8,
+			sources: {},
+			layers: [],
+		}
 		tileUrls.forEach((tileUrl, index) => {
 			const sourceId = `custom-tiles-${index}`;
-			sources[sourceId] = {
+			spec.sources[sourceId] = {
 				type: 'raster',
 				tiles: [tileUrl],
 				tileSize: 256
 			};
 
-			layers.push({
+			spec.layers.push({
 				id: `custom-layer-${index}`,
 				type: 'raster',
 				source: sourceId
 			});
 		});
-
-		return {
-			version: 8,
-			sources,
-			layers
-		};
+		return spec;
 	}
 
 	private showMapContextMenu(evt: MouseEvent): void {
@@ -391,7 +385,7 @@ export class MapView extends BasesView {
 				this.config.set('center', coordString);
 
 				// 3. Immediately move the map for instant user feedback.
-				this.map.setCenter([currentLng, currentLat]); // MapLibre uses [lng, lat]
+				this.map?.setCenter([currentLng, currentLat]); // MapLibre uses [lng, lat]
 			})
 		);
 
@@ -458,7 +452,7 @@ export class MapView extends BasesView {
 		}
 
 		// Calculate bounds for all markers
-		const bounds = new maplibregl.LngLatBounds();
+		const bounds = new LngLatBounds();
 		this.markers.forEach(markerData => {
 			const [lat, lng] = markerData.coordinates;
 			bounds.extend([lng, lat]);
@@ -532,7 +526,7 @@ export class MapView extends BasesView {
 		return null;
 	}
 
-	private parseCoordinate(value: any): number | null {
+	private parseCoordinate(value: unknown): number | null {
 		if (value instanceof NumberValue) {
 			const numData = Number(value.toString());
 			return isNaN(numData) ? null : numData;
@@ -599,7 +593,7 @@ export class MapView extends BasesView {
 		}
 	}
 
-	private createMarker(entry: BasesEntry, coordinates: [number, number]): maplibregl.Marker | null {
+	private createMarker(entry: BasesEntry, coordinates: [number, number]): Marker | null {
 		if (!this.map) return null;
 
 		const [lat, lng] = coordinates;
@@ -625,7 +619,7 @@ export class MapView extends BasesView {
 
 		if (this.markerIconProp && customIcon) {
 			const iconElement = createDiv('bases-map-marker-icon');
-			setIcon(iconElement, customIcon as any);
+			setIcon(iconElement, customIcon);
 			markerContainerEl.appendChild(iconElement);
 		}
 		else {
@@ -633,7 +627,7 @@ export class MapView extends BasesView {
 			markerContainerEl.appendChild(dotElement);
 		}
 
-		const marker = new maplibregl.Marker({
+		const marker = new Marker({
 			element: markerContainerEl
 		})
 			.setLngLat([lng, lat])
@@ -765,7 +759,7 @@ export class MapView extends BasesView {
 		return containerEl;
 	}
 
-	private hasNonEmptyValue(value: any): boolean {
+	private hasNonEmptyValue(value: Value): boolean {
 		if (!value) return false;
 
 		const stringValue = value.toString().trim();
@@ -828,15 +822,15 @@ export class MapView extends BasesView {
 
 		// Create shared popup if it doesn't exist
 		if (!this.sharedPopup) {
-			this.sharedPopup = new maplibregl.Popup({
+			const sharedPopup = this.sharedPopup = new Popup({
 				closeButton: false,
 				closeOnClick: false,
 				offset: 25
 			});
 
 			// Add hover handlers to the popup itself
-			this.sharedPopup.on('open', () => {
-				const popupEl = this.sharedPopup.getElement();
+			sharedPopup.on('open', () => {
+				const popupEl = sharedPopup.getElement();
 				if (popupEl) {
 					popupEl.addEventListener('mouseenter', () => {
 						if (this.popupHideTimeout) {
@@ -873,10 +867,14 @@ export class MapView extends BasesView {
 		}, 150); // Small delay to allow moving to popup
 	}
 
-	public setEphemeralState(state: any): void {
-		// Handle pending map state like table handles pendingScroll
-		if (state.mapView && typeof state.mapView === 'object') {
-			this.pendingMapState = state.mapView;
+	public setEphemeralState(state: unknown): void {
+		if (state && Object.hasOwn(state, 'mapView')) {
+			const mapView = state.mapView;
+
+			// Handle pending map state like table handles pendingScroll
+			if (mapView && typeof mapView === 'object') {
+				this.pendingMapState = mapView;
+			}
 		}
 	}
 
