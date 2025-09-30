@@ -573,15 +573,10 @@ export class MapView extends BasesView {
 
 		try {
 			const value = entry.getValue(this.markerColorProp);
-			if (!value) return null;
+			if (!value || !value.isTruthy()) return null;
 
 			// Extract the color value from the property
 			const colorString = value.toString().trim();
-
-			// Handle null/empty/invalid cases - return null to use default CSS variable
-			if (!colorString || colorString.length === 0 || colorString === 'null' || colorString === 'undefined') {
-				return null;
-			}
 
 			// Return the color as-is, let CSS handle validation
 			// Supports: hex (#ff0000), rgb/rgba, hsl/hsla, CSS color names, and CSS custom properties (var(--color-name))
@@ -759,15 +754,7 @@ export class MapView extends BasesView {
 	}
 
 	private hasNonEmptyValue(value: Value): boolean {
-		if (!value) return false;
-
-		const stringValue = value.toString().trim();
-		if (!stringValue) return false;
-
-		// Check for common empty values
-		if (stringValue === '[]' || stringValue === '{}' || stringValue === 'null' || stringValue === 'undefined') {
-			return false;
-		}
+		if (!value || !value.isTruthy()) return false;
 
 		// Handle ListValue - check if it has any non-empty items
 		if (value instanceof ListValue) {
