@@ -60,7 +60,7 @@ class CustomZoomControl {
 
 	onRemove(): void {
 		if (this.containerEl && this.containerEl.parentNode) {
-			this.containerEl.parentNode.removeChild(this.containerEl);
+			this.containerEl.detach();
 		}
 	}
 }
@@ -608,33 +608,33 @@ export class MapView extends BasesView {
 		const customIcon = this.getCustomIcon(entry);
 		const customColor = this.getCustomColor(entry);
 
-		const markerContainer = createDiv('bases-map-custom-marker');
+		const markerContainerEl = createDiv('bases-map-custom-marker');
 
-		const shadowDiv = createDiv('bases-map-marker-shadow');
-		markerContainer.appendChild(shadowDiv);
+		const markerShadowEl = createDiv('bases-map-marker-shadow');
+		markerContainerEl.appendChild(markerShadowEl);
 
-		const pinDiv = createDiv('bases-map-marker-pin');
-		markerContainer.appendChild(pinDiv);
+		const pinEl = createDiv('bases-map-marker-pin');
+		markerContainerEl.appendChild(pinEl);
 
-		const pinOutlineDiv = createDiv('bases-map-marker-pin-outline');
-		markerContainer.appendChild(pinOutlineDiv);
+		const pinOutlineEl = createDiv('bases-map-marker-pin-outline');
+		markerContainerEl.appendChild(pinOutlineEl);
 
 		if (customColor) {
-			pinDiv.style.setProperty('--marker-color', customColor);
+			pinEl.style.setProperty('--marker-color', customColor);
 		}
 
 		if (this.markerIconProp && customIcon) {
 			const iconElement = createDiv('bases-map-marker-icon');
 			setIcon(iconElement, customIcon as any);
-			markerContainer.appendChild(iconElement);
+			markerContainerEl.appendChild(iconElement);
 		}
 		else {
 			const dotElement = createDiv('bases-map-marker-dot');
-			markerContainer.appendChild(dotElement);
+			markerContainerEl.appendChild(dotElement);
 		}
 
 		const marker = new maplibregl.Marker({
-			element: markerContainer
+			element: markerContainerEl
 		})
 			.setLngLat([lng, lat])
 			.addTo(this.map);
@@ -714,7 +714,7 @@ export class MapView extends BasesView {
 	}
 
 	private createPopupContent(entry: BasesEntry): HTMLElement {
-		const container = createDiv('bases-map-popup');
+		const containerEl = createDiv('bases-map-popup');
 
 		// Get properties that have values
 		const properties = this.data.properties.slice(0, 20); // Max 20 properties
@@ -737,19 +737,19 @@ export class MapView extends BasesView {
 		// Use first property as title (still acts as a link to the file)
 		if (propertiesWithValues.length > 0) {
 			const firstProperty = propertiesWithValues[0];
-			const title = container.createDiv('bases-map-popup-title');
+			const titleEl = containerEl.createDiv('bases-map-popup-title');
 
 			// Create a clickable link that opens the file
-			const titleLink = title.createEl('a', {
+			const titleLinkEl = titleEl.createEl('a', {
 				href: '#',
 				cls: 'internal-link'
 			});
 
 			// Render the first property value inside the link
-			firstProperty.value.renderTo(titleLink, this.app.renderContext);
+			firstProperty.value.renderTo(titleLinkEl, this.app.renderContext);
 
 			// Handle click to open file
-			titleLink.addEventListener('click', (evt) => {
+			titleLinkEl.addEventListener('click', (evt) => {
 				evt.preventDefault();
 				void this.app.workspace.openLinkText(entry.file.path, '', Keymap.isModEvent(evt));
 			});
@@ -757,9 +757,9 @@ export class MapView extends BasesView {
 			// Show remaining properties (excluding the first one used as title)
 			const remainingProperties = propertiesWithValues.slice(1);
 			if (remainingProperties.length > 0) {
-				const propContainer = container.createDiv('bases-map-popup-properties');
+				const propContainerEl = containerEl.createDiv('bases-map-popup-properties');
 				for (const { prop, value } of remainingProperties) {
-					const propEl = propContainer.createDiv('bases-map-popup-property');
+					const propEl = propContainerEl.createDiv('bases-map-popup-property');
 					const labelEl = propEl.createDiv('bases-map-popup-property-label');
 					labelEl.textContent = this.config.getDisplayName(prop);
 					const valueEl = propEl.createDiv('bases-map-popup-property-value');
@@ -768,7 +768,7 @@ export class MapView extends BasesView {
 			}
 		}
 
-		return container;
+		return containerEl;
 	}
 
 	private hasNonEmptyValue(value: any): boolean {
