@@ -85,7 +85,7 @@ export class MapView extends BasesView {
 	private minZoom = 0;  // MapLibre default
 	private mapTiles: string[] = []; // Custom tile URLs for light mode
 	private mapTilesDark: string[] = []; // Custom tile URLs for dark mode
-	private pendingMapState: { center: LngLatLike, zoom: number } | null = null;
+	private pendingMapState: { center?: LngLatLike, zoom?: number } | null = null;
 	private sharedPopup: Popup | null = null;
 	private popupHideTimeout: number | null = null;
 
@@ -481,7 +481,7 @@ export class MapView extends BasesView {
 			if (center) {
 				this.map.setCenter(center);
 			}
-			if (typeof zoom === 'number') {
+			if (zoom !== null && zoom !== undefined) {
 				this.map.setZoom(zoom);
 			}
 			this.pendingMapState = null;
@@ -868,24 +868,32 @@ export class MapView extends BasesView {
 	}
 
 	public setEphemeralState(state: unknown): void {
-		if (state && Object.hasOwn(state, 'mapView')) {
-			const mapView = state.mapView;
+		if (!state) {
+			this.pendingMapState = null;
+			return;
+		}
 
-			// Handle pending map state like table handles pendingScroll
-			if (mapView && typeof mapView === 'object') {
-				this.pendingMapState = mapView;
+		this.pendingMapState = {};
+		if (hasOwnProperty(state, 'center') && hasOwnProperty(state.center, 'lng') && hasOwnProperty(state.center, 'lat')) {
+			const lng = state.center.lng;
+			const lat = state.center.lat;
+
+			if (typeof lng === 'number' && typeof lat === 'number') {
+				this.pendingMapState.center = { lng, lat };
 			}
+		}
+		if (hasOwnProperty(state, 'zoom') && typeof state.zoom === 'number') {
+			this.pendingMapState.zoom = state.zoom;
 		}
 	}
 
 	public getEphemeralState(): unknown {
 		if (!this.map) return {};
 
+		const center = this.map.getCenter();
 		return {
-			mapView: {
-				center: this.map.getCenter(),
-				zoom: this.map.getZoom(),
-			}
+			center: { lng: center.lng, lat: center.lat },
+			zoom: this.map.getZoom(),
 		};
 	}
 
@@ -998,4 +1006,9 @@ function isDelegatedMouseover(evt: MouseEvent | DragEvent, target: HTMLElement) 
 	}
 
 	return true;
+}
+
+/** Wrapper for Object.hasOwn which performs type narrowing. */
+function hasOwnProperty<K extends PropertyKey>(o: unknown, v: K): o is Record<K, unknown> {
+	return o != null && typeof o === 'object' && Object.hasOwn(o, v);
 }
