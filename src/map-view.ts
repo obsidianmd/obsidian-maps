@@ -871,7 +871,7 @@ export class MapView extends BasesView {
 			clearTimeout(this.popupHideTimeout);
 		}
 
-		this.popupHideTimeout = window.setTimeout(() => {
+		this.popupHideTimeout = this.containerEl.win.setTimeout(() => {
 			if (this.sharedPopup) {
 				this.sharedPopup.remove();
 			}
