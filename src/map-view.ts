@@ -741,18 +741,12 @@ export class MapView extends BasesView {
 
 			// Create a clickable link that opens the file
 			const titleLinkEl = titleEl.createEl('a', {
-				href: '#',
+				href: entry.file.path,
 				cls: 'internal-link'
 			});
 
 			// Render the first property value inside the link
 			firstProperty.value.renderTo(titleLinkEl, this.app.renderContext);
-
-			// Handle click to open file
-			titleLinkEl.addEventListener('click', (evt) => {
-				evt.preventDefault();
-				void this.app.workspace.openLinkText(entry.file.path, '', Keymap.isModEvent(evt));
-			});
 
 			// Show remaining properties (excluding the first one used as title)
 			const remainingProperties = propertiesWithValues.slice(1);
