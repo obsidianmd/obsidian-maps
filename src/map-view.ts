@@ -156,11 +156,9 @@ export class MapView extends BasesView {
 			}
 		});
 
-		// Remove aria-label from the map element, otherwise it shows a tooltip
-		const mapCanvas = this.mapEl.querySelector('canvas');
-		if (mapCanvas) {
-			mapCanvas.removeAttribute('aria-label');
-		}
+		// Hide tooltip on the map element.
+		this.mapEl.querySelector('canvas')?.style
+			.setProperty('--no-tooltip', 'true');
 
 		// Add context menu to map
 		this.mapEl.addEventListener('contextmenu', (evt) => {
