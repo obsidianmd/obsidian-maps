@@ -87,7 +87,9 @@ export class MapView extends BasesView {
 	private mapTilesDark: string[] = []; // Custom tile URLs for dark mode
 	private pendingMapState: { center?: LngLatLike, zoom?: number } | null = null;
 	private sharedPopup: Popup | null = null;
+
 	private popupHideTimeout: number | null = null;
+	private popupHideTimeoutWin: Window | null = null;
 
 	constructor(controller: QueryController, scrollEl: HTMLElement) {
 		super(controller);
@@ -172,10 +174,7 @@ export class MapView extends BasesView {
 	}
 
 	private destroyMap(): void {
-		if (this.popupHideTimeout) {
-			clearTimeout(this.popupHideTimeout);
-			this.popupHideTimeout = null;
-		}
+		this.clearPopupHideTimeout();
 		if (this.sharedPopup) {
 			this.sharedPopup.remove();
 			this.sharedPopup = null;
@@ -507,7 +506,7 @@ export class MapView extends BasesView {
 			// Handle string values (e.g., "34.1395597,-118.3870991" or "34.1395597, -118.3870991")
 			else if (value instanceof StringValue) {
 				const stringData = value.toString().trim();
-				
+
 				// Split by comma and handle various spacing
 				const parts = stringData.split(',');
 				if (parts.length >= 2) {
@@ -800,11 +799,7 @@ export class MapView extends BasesView {
 	private showPopup(entry: BasesEntry, coordinates: [number, number]): void {
 		if (!this.map) return;
 
-		// Clear any pending hide timeout
-		if (this.popupHideTimeout) {
-			clearTimeout(this.popupHideTimeout);
-			this.popupHideTimeout = null;
-		}
+		this.clearPopupHideTimeout();
 
 		// Create shared popup if it doesn't exist
 		if (!this.sharedPopup) {
@@ -819,10 +814,7 @@ export class MapView extends BasesView {
 				const popupEl = sharedPopup.getElement();
 				if (popupEl) {
 					popupEl.addEventListener('mouseenter', () => {
-						if (this.popupHideTimeout) {
-							clearTimeout(this.popupHideTimeout);
-							this.popupHideTimeout = null;
-						}
+						this.clearPopupHideTimeout();
 					});
 					popupEl.addEventListener('mouseleave', () => {
 						this.hidePopup();
@@ -841,16 +833,26 @@ export class MapView extends BasesView {
 	}
 
 	private hidePopup(): void {
-		if (this.popupHideTimeout) {
-			clearTimeout(this.popupHideTimeout);
-		}
+		this.clearPopupHideTimeout();
 
-		this.popupHideTimeout = this.containerEl.win.setTimeout(() => {
+		const win = this.popupHideTimeoutWin = this.containerEl.win;
+		this.popupHideTimeout = win.setTimeout(() => {
 			if (this.sharedPopup) {
 				this.sharedPopup.remove();
 			}
 			this.popupHideTimeout = null;
+			this.popupHideTimeoutWin = null;
 		}, 150); // Small delay to allow moving to popup
+	}
+
+	private clearPopupHideTimeout(): void {
+		if (this.popupHideTimeout) {
+			const win = this.popupHideTimeoutWin || this.scrollEl.win;
+			win.clearTimeout(this.popupHideTimeout);
+		}
+
+		this.popupHideTimeoutWin = null;
+		this.popupHideTimeout = null;
 	}
 
 	public setEphemeralState(state: unknown): void {
