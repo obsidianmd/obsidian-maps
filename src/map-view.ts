@@ -598,27 +598,20 @@ export class MapView extends BasesView {
 
 		const markerContainerEl = createDiv('bases-map-custom-marker');
 
-		const markerShadowEl = createDiv('bases-map-marker-shadow');
-		markerContainerEl.appendChild(markerShadowEl);
-
-		const pinEl = createDiv('bases-map-marker-pin');
-		markerContainerEl.appendChild(pinEl);
-
-		const pinOutlineEl = createDiv('bases-map-marker-pin-outline');
-		markerContainerEl.appendChild(pinOutlineEl);
+		markerContainerEl.createDiv('bases-map-marker-shadow');
+		const pinEl = markerContainerEl.createDiv('bases-map-marker-pin');
+		markerContainerEl.createDiv('bases-map-marker-pin-outline');
 
 		if (customColor) {
 			pinEl.style.setProperty('--marker-color', customColor);
 		}
 
 		if (this.markerIconProp && customIcon) {
-			const iconElement = createDiv('bases-map-marker-icon');
+			const iconElement = markerContainerEl.createDiv('bases-map-marker-icon');
 			setIcon(iconElement, customIcon);
-			markerContainerEl.appendChild(iconElement);
 		}
 		else {
-			const dotElement = createDiv('bases-map-marker-dot');
-			markerContainerEl.appendChild(dotElement);
+			markerContainerEl.createDiv('bases-map-marker-dot');
 		}
 
 		const marker = new Marker({
