@@ -647,6 +647,8 @@ export class MapView extends BasesView {
 
 		// Handle click events - similar to cards view
 		markerEl.addEventListener('click', (evt) => {
+			if (evt.defaultPrevented) return;
+
 			// Don't block external links
 			const target = evt.target as Element;
 			if (target?.closest && target.closest('a')) return;
