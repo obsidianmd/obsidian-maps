@@ -76,6 +76,7 @@ export class MapView extends BasesView {
 	// Internal rendering data
 	private map: Map | null = null;
 	private markers: MapMarker[] = [];
+	private bounds: LngLatBounds | null = null;
 	private coordinatesProp: BasesPropertyId | null = null;
 	private markerIconProp: BasesPropertyId | null = null;
 	private markerColorProp: BasesPropertyId | null = null;
@@ -155,11 +156,27 @@ export class MapView extends BasesView {
 
 		this.map.addControl(new CustomZoomControl(), 'top-right');
 
-		// Ensure the center is set after map loads (in case the style loading overrides it)
+		// Ensure the center and zoom are set after map loads (in case the style loading overrides it)
 		this.map.on('load', () => {
-			// Only set center if we have non-default coordinates
-			if (this.center[0] !== 0 || this.center[1] !== 0) {
-				this.map?.setCenter([this.center[1], this.center[0]]); // MapLibre uses [lng, lat]
+			if (!this.map) return;
+
+			const hasConfiguredCenter = this.center[0] !== 0 || this.center[1] !== 0;
+			const hasConfiguredZoom = this.config.get('defaultZoom') && Number.isNumber(this.config.get('defaultZoom'));
+
+			// Set center based on configuration
+			if (hasConfiguredCenter) {
+				this.map.setCenter([this.center[1], this.center[0]]); // MapLibre uses [lng, lat]
+			}
+			else if (this.bounds) {
+				this.map.setCenter(this.bounds.getCenter()); // Center on markers
+			}
+
+			// Set zoom based on configuration
+			if (hasConfiguredZoom) {
+				this.map.setZoom(this.defaultZoom); // Use configured zoom
+			}
+			else if (this.bounds) {
+				this.map.fitBounds(this.bounds, { padding: 20 }); // Fit all markers
 			}
 		});
 
@@ -172,10 +189,6 @@ export class MapView extends BasesView {
 			evt.preventDefault();
 			this.showMapContextMenu(evt);
 		});
-
-		if (this.data) {
-			this.updateMarkers();
-		}
 	}
 
 	private destroyMap(): void {
@@ -189,23 +202,20 @@ export class MapView extends BasesView {
 			this.map = null;
 		}
 		this.markers = [];
+		this.bounds = null;
 	}
 
 	public onDataUpdated(): void {
 		this.containerEl.removeClass('is-loading');
 		this.loadConfig();
 		this.initializeMap();
-		this.display();
-	}
 
-	private display() {
-		if (this.map) {
+		if (this.map && this.data) {
 			this.updateMarkers();
 		}
 	}
 
 	private loadConfig(): void {
-
 		// Load property configurations
 		this.coordinatesProp = this.config.getAsPropertyId('coordinates');
 		this.markerIconProp = this.config.getAsPropertyId('markerIcon');
@@ -402,27 +412,17 @@ export class MapView extends BasesView {
 	}
 
 	private updateMarkers(): void {
+		// Clear existing markers
+		for (const markerData of this.markers) {
+			markerData.marker.remove();
+		}
+
 		if (!this.map || !this.data || !this.coordinatesProp) {
-			this.clearMarkers();
 			return;
 		}
 
-		// Clear existing markers
-		this.clearMarkers();
-
 		// Create markers for entries with valid coordinates
-		this.createMarkersFromData();
-
-		// Update map view based on markers
-		this.updateMapView();
-
-		// Apply pending map state if available
-		this.applyPendingMapState();
-	}
-
-	private createMarkersFromData(): void {
-		const validMarkers: MapMarker[] = [];
-
+		const validMarkers: MapMarker[] = this.markers = [];
 		for (const entry of this.data.data) {
 			const coordinates = this.extractCoordinates(entry);
 			if (coordinates) {
@@ -437,47 +437,14 @@ export class MapView extends BasesView {
 			}
 		}
 
-		this.markers = validMarkers;
-	}
-
-	private updateMapView(): void {
-		if (!this.map) return;
-
-		const hasConfiguredCenter = this.center[0] !== 0 || this.center[1] !== 0;
-		const hasConfiguredZoom = this.config.get('defaultZoom') && Number.isNumber(this.config.get('defaultZoom'));
-
-		if (this.markers.length === 0) {
-			// No markers - use configured defaults
-			this.map.setCenter([this.center[1], this.center[0]]); // MapLibre uses [lng, lat]
-			this.map.setZoom(this.defaultZoom);
-			return;
-		}
-
 		// Calculate bounds for all markers
-		const bounds = new LngLatBounds();
-		this.markers.forEach(markerData => {
+		const bounds = this.bounds = new LngLatBounds();
+		validMarkers.forEach(markerData => {
 			const [lat, lng] = markerData.coordinates;
 			bounds.extend([lng, lat]);
 		});
 
-		// Set center based on configuration
-		if (hasConfiguredCenter) {
-			this.map.setCenter([this.center[1], this.center[0]]); // Use configured center
-		}
-		else {
-			this.map.setCenter(bounds.getCenter()); // Center on markers
-		}
-
-		// Set zoom based on configuration
-		if (hasConfiguredZoom) {
-			this.map.setZoom(this.defaultZoom); // Use configured zoom
-		}
-		else {
-			this.map.fitBounds(bounds, { padding: 20 }); // Fit all markers
-		}
-	}
-
-	private applyPendingMapState(): void {
+		// Apply pending map state if available
 		if (this.pendingMapState && this.map) {
 			const { center, zoom } = this.pendingMapState;
 			if (center) {
@@ -787,13 +754,6 @@ export class MapView extends BasesView {
 		}
 
 		return false;
-	}
-
-	private clearMarkers(): void {
-		for (const markerData of this.markers) {
-			markerData.marker.remove();
-		}
-		this.markers = [];
 	}
 
 	private showPopup(entry: BasesEntry, coordinates: [number, number]): void {
