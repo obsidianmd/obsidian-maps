@@ -23,7 +23,7 @@ coordinates:
   - "lat"
 ```
 
-If you store your properties as two separate `longitude` and `latitude` properties you can combine them with a formula property, by defining it as an array of coordinates: `[longitude,latitude]`.
+If you store your properties as separate `longitude` and `latitude` properties you can combine them with a formula property by defining it as an array of coordinates: `[longitude,latitude]`.
 
 ### Icons
 
