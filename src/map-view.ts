@@ -964,15 +964,13 @@ export class MapView extends BasesView {
 				items: [
 					{
 						displayName: 'Map tiles',
-						type: 'text',
+						type: 'multitext',
 						key: 'mapTiles',
-						placeholder: 'https://',
 					},
 					{
 						displayName: 'Map tiles in dark mode',
-						type: 'text',
+						type: 'multitext',
 						key: 'mapTilesDark',
-						placeholder: 'https://',
 					},
 				]
 			},
