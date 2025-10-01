@@ -2,6 +2,7 @@ import {
 	BasesEntry,
 	BasesPropertyId,
 	BasesView,
+	debounce,
 	Keymap,
 	ListValue,
 	Menu,
@@ -107,10 +108,14 @@ export class MapView extends BasesView {
 		this.destroyMap();
 	}
 
+	/** Reduce flashing due to map re-rendering by debouncing while resizes are still ocurring. */
+	private onResizeDebounce = debounce(
+		() => { if (this.map) this.map.resize() },
+		100,
+		true);
+
 	onResize(): void {
-		if (this.map) {
-			this.map.resize();
-		}
+		this.onResizeDebounce();
 	}
 
 	public focus(): void {
