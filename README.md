@@ -30,7 +30,7 @@ coordinates:
   - "lng"
 ```
 
-If you store coordinates as separate `longitude` and `latitude` properties you can combine them with a formula property by defining it as an array of coordinates: `[latitude, longitude]`.
+If you store coordinates as separate `latitude` and `longitude` properties you can combine them with a formula property by defining it as an array of coordinates: `[latitude, longitude]`.
 
 #### Icons
 
