@@ -14,7 +14,7 @@ Adds a map layout to [Obsidian Bases](https://help.obsidian.md/bases) so you can
 
 ### Examples
 
-Open the [example files](https://github.com/obsidianmd/obsidian-maps/tree/master/examples) in Obsidian to see working map views with markers, icons and color already configured.
+Open the [example files](https://github.com/obsidianmd/obsidian-maps/tree/master/examples) in Obsidian to see working map views with markers, icons, and colors already configured.
 
 ### Markers
 
