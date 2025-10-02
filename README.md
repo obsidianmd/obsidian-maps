@@ -12,6 +12,10 @@ Adds a map layout to [Obsidian Bases](https://help.obsidian.md/bases) so you can
 - Load custom background tiles.
 - Define default zoom options.
 
+### Examples
+
+See the [example files](https://github.com/obsidianmd/obsidian-maps/tree/master/examples) to see working map views in Obsidian.
+
 ### Markers
 
 To display markers on the map go to the view configuration menu and select a marker property. The property must contain longitude and latitude coordinates. The following formats are accepted:
