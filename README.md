@@ -1,4 +1,5 @@
-Requires [Obsidian 1.10+](https://obsidian.md/changelog/2025-10-01-desktop-v1.10.0/). This project demonstrates the Bases API that allows plugin developers to create new view types.
+> [!NOTE]
+> Requires [Obsidian 1.10.0+](https://obsidian.md/changelog/2025-10-01-desktop-v1.10.0/). This project demonstrates the new Obsidian Bases API that allows plugin developers to create new view types.
 
 ## Map view for Obsidian Bases
 
