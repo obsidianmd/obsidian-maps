@@ -18,19 +18,19 @@ Open the [example files](https://github.com/obsidianmd/obsidian-maps/tree/master
 
 ### Markers
 
-To display markers on the map go to the view configuration menu and select a marker property. The property must contain longitude and latitude coordinates. The following formats are accepted:
+To display markers on the map go to the view configuration menu and select a marker property. The property must contain latitude and longitude coordinates. The following formats are accepted:
 
 ```yaml
 # Text property
-coordinates: "lng, lat"
+coordinates: "lat, lng"
 
 # List property
 coordinates:
-  - "lng"
   - "lat"
+  - "lng"
 ```
 
-If you store coordinates as separate `longitude` and `latitude` properties you can combine them with a formula property by defining it as an array of coordinates: `[longitude,latitude]`.
+If you store coordinates as separate `longitude` and `latitude` properties you can combine them with a formula property by defining it as an array of coordinates: `[latitude, longitude]`.
 
 #### Icons
 

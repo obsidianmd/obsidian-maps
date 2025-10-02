@@ -8,7 +8,7 @@ For example [[Eiffel Tower]] has the following properties:
 
 | Property      | Value                    |                                                                                                                                                      |
 | ------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `coordinates` | `48.85837`<br>`2.294481` | Coordinates are stored as `longitude, latitude`. You can get coordinates by right-clicking a location on the map and selecting **Copy coordinates**. |
+| `coordinates` | `48.85837`<br>`2.294481` | Coordinates are stored as `latitude, longitude`. You can get coordinates by right-clicking a location on the map and selecting **Copy coordinates**. |
 | `icon`        | `landmark`               | The name of an icon from the [Lucide library](https://lucide.dev/).                                                                                  |
 | `color`       | `red`                    | A valid CSS value: hex, RGB, named color, etc.                                                                                                       |
 
