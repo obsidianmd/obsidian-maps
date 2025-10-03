@@ -27,6 +27,12 @@ interface MapMarker {
 	coordinates: [number, number];
 }
 
+interface ImageDimensions {
+	width: number;
+	height: number;
+	aspectRatio: number;
+}
+
 class CustomZoomControl {
 	private containerEl: HTMLElement;
 
@@ -87,6 +93,9 @@ export class MapView extends BasesView {
 	private minZoom = 0;  // MapLibre default
 	private mapTiles: string[] = []; // Custom tile URLs for light mode
 	private mapTilesDark: string[] = []; // Custom tile URLs for dark mode
+	private localImagePath: string = ''; // Path to local image file
+	private localImageData: string | null = null; // Base64 data URL for local image
+	private imageDimensions: ImageDimensions | null = null;
 	private pendingMapState: { center?: LngLatLike, zoom?: number } | null = null;
 	private sharedPopup: Popup | null = null;
 
@@ -123,15 +132,68 @@ export class MapView extends BasesView {
 		this.containerEl.focus({ preventScroll: true });
 	}
 
-	private onThemeChange = (): void => {
-		if (this.map && (this.mapTiles.length > 0 || this.mapTilesDark.length > 0)) {
-			// Update map style when theme changes
+	private onThemeChange = async (): Promise<void> => {
+		if (this.map && !this.localImagePath && (this.mapTiles.length > 0 || this.mapTilesDark.length > 0)) {
+			// Update map style when theme changes if using a tile-based map
 			const newStyle = this.getMapStyle();
-			this.map.setStyle(newStyle);
+			this.map.setStyle(await newStyle);
 		}
 	};
 
-	private initializeMap(): void {
+	private async loadLocalImage(imagePath: string): Promise<void> {
+		if (!imagePath || imagePath === this.localImagePath) return;
+
+		try {
+			const file = this.app.vault.getFileByPath(imagePath);
+			if (!file ) {
+				console.error('Image file not found:', imagePath);
+				this.localImageData = null;
+				this.imageDimensions = null;
+				return;
+			}
+
+			// Read the file as binary
+			const arrayBuffer = await this.app.vault.readBinary(file);
+			
+			// Convert to base64
+			const base64 = arrayBufferToBase64(arrayBuffer);
+			
+			// Determine MIME type from file extension
+			const extension = imagePath.split('.').pop()?.toLowerCase();
+			const mimeType = getMimeType(extension || '');
+			
+			this.localImageData = `data:${mimeType};base64,${base64}`;
+			
+			// Load image to get dimensions
+			await this.loadImageDimensions(this.localImageData);
+			
+			this.localImagePath = imagePath;
+		} catch (error) {
+			console.error('Error loading local image:', error);
+			this.localImageData = null;
+			this.imageDimensions = null;
+		}
+	}
+
+	private async loadImageDimensions(dataUrl: string): Promise<void> {
+		return new Promise((resolve, reject) => {
+			const img = new Image();
+			img.onload = () => {
+				this.imageDimensions = {
+					width: img.width,
+					height: img.height,
+					aspectRatio: img.width / img.height
+				};
+				resolve();
+			};
+			img.onerror = () => {
+				reject(new Error('Failed to load image'));
+			};
+			img.src = dataUrl;
+		});
+	}
+
+	private async initializeMap(): Promise<void> {
 		if (this.map) return;
 
 		// Set initial map height based on context
@@ -144,12 +206,31 @@ export class MapView extends BasesView {
 			this.mapEl.style.height = '';
 		}
 
+		// Load local image if configured
+		const localImageConfig = this.config.get('localImage');
+		if (localImageConfig && typeof localImageConfig === 'string' && localImageConfig.trim()) {
+			await this.loadLocalImage(localImageConfig.trim());
+		}
+
+		// Determine center and zoom based on whether we're using a local image
+		let initialCenter: [number, number];
+		let initialZoom: number;
+		
+		if (this.localImageData && this.imageDimensions) {
+			// For local images, center on the image bounds
+			initialCenter = [0, 0]; // Center of our custom coordinate system
+			initialZoom = 1; // Start zoomed out to see the whole image
+		} else {
+			initialCenter = [this.center[1], this.center[0]]; // MapLibre uses [lng, lat]
+			initialZoom = this.defaultZoom;
+		}
+
 		// Initialize MapLibre GL JS map with configured tiles or default style
 		this.map = new Map({
 			container: this.mapEl,
-			style: this.getMapStyle(),
-			center: [this.center[1], this.center[0]], // MapLibre uses [lng, lat]
-			zoom: this.defaultZoom,
+			style: await this.getMapStyle(),
+			center: initialCenter,
+			zoom: initialZoom,
 			minZoom: this.minZoom,
 			maxZoom: this.maxZoom,
 		});
@@ -160,6 +241,14 @@ export class MapView extends BasesView {
 		this.map.on('load', () => {
 			if (!this.map) return;
 
+			// For local images, fit the image bounds
+			if (this.localImageData && this.imageDimensions) {
+				const imageBounds = this.getImageBounds();
+				this.map.fitBounds(imageBounds, { padding: 20 });
+				return;
+			}
+
+			// For tile-based maps, use configured center/zoom or fit markers
 			const hasConfiguredCenter = this.center[0] !== 0 || this.center[1] !== 0;
 			const hasConfiguredZoom = this.config.get('defaultZoom') && Number.isNumber(this.config.get('defaultZoom'));
 
@@ -191,6 +280,21 @@ export class MapView extends BasesView {
 		});
 	}
 
+	private getImageBounds(): [[number, number], [number, number]] {
+		if (!this.imageDimensions) {
+			return [[-180, -85], [180, 85]];
+		}
+
+		// Create bounds that maintain the image's aspect ratio
+		// Use a coordinate system where the image spans from -aspectRatio to +aspectRatio horizontally
+		// and -1 to +1 vertically
+		const halfWidth = this.imageDimensions.aspectRatio;
+		return [
+			[-halfWidth, -1], // Southwest corner [lng, lat]
+			[halfWidth, 1]    // Northeast corner [lng, lat]
+		];
+	}
+
 	private destroyMap(): void {
 		this.clearPopupHideTimeout();
 		if (this.sharedPopup) {
@@ -205,17 +309,17 @@ export class MapView extends BasesView {
 		this.bounds = null;
 	}
 
-	public onDataUpdated(): void {
+	public async onDataUpdated(): Promise<void> {
 		this.containerEl.removeClass('is-loading');
-		this.loadConfig();
-		this.initializeMap();
+		await this.loadConfig();
+		await this.initializeMap();
 
 		if (this.map && this.data) {
 			this.updateMarkers();
 		}
 	}
 
-	private loadConfig(): void {
+	private async loadConfig(): Promise<void> {
 		// Load property configurations
 		this.coordinatesProp = this.config.getAsPropertyId('coordinates');
 		this.markerIconProp = this.config.getAsPropertyId('markerIcon');
@@ -238,8 +342,25 @@ export class MapView extends BasesView {
 		this.mapTiles = this.getArrayConfig('mapTiles');
 		this.mapTilesDark = this.getArrayConfig('mapTilesDark');
 
+		// Load local image path
+		const localImageConfig = this.config.get('localImage');
+		const newLocalImagePath = (localImageConfig && typeof localImageConfig === 'string') 
+			? localImageConfig.trim() 
+			: '';
+		
+		// Reload image if path changed
+		if (newLocalImagePath !== this.localImagePath) {
+			if (newLocalImagePath) {
+				await this.loadLocalImage(newLocalImagePath);
+			} else {
+				this.localImagePath = '';
+				this.localImageData = null;
+				this.imageDimensions = null;
+			}
+		}
+
 		// Apply configurations to existing map
-		this.applyConfigToMap();
+		await this.applyConfigToMap();
 	}
 
 	private getNumericConfig(key: string, defaultValue: number, min?: number, max?: number): number {
@@ -286,7 +407,7 @@ export class MapView extends BasesView {
 		return DEFAULT_MAP_CENTER;
 	}
 
-	private applyConfigToMap(): void {
+	private async applyConfigToMap(): Promise<void> {
 		if (!this.map) return;
 
 		// Update map constraints
@@ -294,7 +415,7 @@ export class MapView extends BasesView {
 		this.map.setMaxZoom(this.maxZoom);
 
 		// Update map style if tiles configuration changed
-		const newStyle = this.getMapStyle();
+		const newStyle = await this.getMapStyle();
 		const currentStyle = this.map.getStyle();
 		if (JSON.stringify(newStyle) !== JSON.stringify(currentStyle)) {
 			this.map.setStyle(newStyle);
@@ -325,8 +446,12 @@ export class MapView extends BasesView {
 		return false;
 	}
 
+	private async getMapStyle(): Promise<string | StyleSpecification> {
+		// we'll try to load the local image first, and fallback if none exists
+		if (this.localImageData && this.imageDimensions) {
+			return this.createLocalImageStyle();
+		}
 
-	private getMapStyle(): string | StyleSpecification {
 		const isDark = this.app.isDarkMode();
 		const tileUrls = isDark && this.mapTilesDark.length > 0 ? this.mapTilesDark : this.mapTiles;
 
@@ -356,6 +481,40 @@ export class MapView extends BasesView {
 			});
 		});
 		return spec;
+	}
+
+	private createLocalImageStyle(): StyleSpecification {
+		if (!this.localImageData || !this.imageDimensions) {
+			throw new Error('Local image data not loaded');
+		}
+
+		const bounds = this.getImageBounds();
+
+		return {
+			version: 8,
+			sources: {
+				'local-image': {
+					type: 'image',
+					url: this.localImageData,
+					coordinates: [
+						[bounds[0][0], bounds[1][1]], // top-left [lng, lat]
+						[bounds[1][0], bounds[1][1]], // top-right [lng, lat]
+						[bounds[1][0], bounds[0][1]], // bottom-right [lng, lat]
+						[bounds[0][0], bounds[0][1]]  // bottom-left [lng, lat]
+					]
+				}
+			},
+			layers: [
+				{
+					id: 'local-image-layer',
+					type: 'raster',
+					source: 'local-image',
+					paint: {
+						'raster-opacity': 1
+					}
+				}
+			]
+		};
 	}
 
 	private showMapContextMenu(evt: MouseEvent): void {
@@ -928,6 +1087,12 @@ export class MapView extends BasesView {
 				type: 'group',
 				items: [
 					{
+						displayName: 'Local image',
+						type: 'text',
+						key: 'localImage',
+						placeholder: 'path/to/image.png',
+					},
+					{
 						displayName: 'Map tiles',
 						type: 'multitext',
 						key: 'mapTiles',
@@ -946,4 +1111,31 @@ export class MapView extends BasesView {
 /** Wrapper for Object.hasOwn which performs type narrowing. */
 function hasOwnProperty<K extends PropertyKey>(o: unknown, v: K): o is Record<K, unknown> {
 	return o != null && typeof o === 'object' && Object.hasOwn(o, v);
+}
+
+/** Convert ArrayBuffer to base64 string */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+	let binary = '';
+	const bytes = new Uint8Array(buffer);
+	const len = bytes.byteLength;
+	for (let i = 0; i < len; i++) {
+		binary += String.fromCharCode(bytes[i]);
+	}
+	return window.btoa(binary);
+}
+
+/** Get MIME type from file extension */
+function getMimeType(extension: string): string {
+	const mimeTypes: Record<string, string> = {
+		'png': 'image/png',
+		'jpg': 'image/jpeg',
+		'jpeg': 'image/jpeg',
+		'gif': 'image/gif',
+		'bmp': 'image/bmp',
+		'webp': 'image/webp',
+		'svg': 'image/svg+xml',
+		'tiff': 'image/tiff',
+		'tif': 'image/tiff'
+	};
+	return mimeTypes[extension] || 'image/png';
 }
