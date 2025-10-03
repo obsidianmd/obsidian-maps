@@ -3,7 +3,7 @@
 
 ## Map view for Obsidian Bases
 
-Adds a map layout to [Obsidian Bases](https://help.obsidian.md/bases) so you can display notes as an interactive map view.
+Adds a [map layout](https://help.obsidian.md/bases/views/map) to [Obsidian Bases](https://help.obsidian.md/bases) so you can display notes as an interactive map view.
 
 ![Map view for Obsidian Bases](/images/map-view.png)
 
