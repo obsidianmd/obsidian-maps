@@ -14,6 +14,7 @@ import {
 	Value,
 } from 'obsidian';
 import { LngLatBounds, LngLatLike, Map, Marker, Popup, StyleSpecification } from 'maplibre-gl';
+import { transformMapboxStyle } from './mapbox-transform';
 
 export const MapViewType = 'map';
 
@@ -126,12 +127,17 @@ export class MapView extends BasesView {
 	private onThemeChange = (): void => {
 		if (this.map && (this.mapTiles.length > 0 || this.mapTilesDark.length > 0)) {
 			// Update map style when theme changes
-			const newStyle = this.getMapStyle();
-			this.map.setStyle(newStyle);
+			void this.updateMapStyle();
 		}
 	};
 
-	private initializeMap(): void {
+	private async updateMapStyle(): Promise<void> {
+		if (!this.map) return;
+		const newStyle = await this.getMapStyle();
+		this.map.setStyle(newStyle);
+	}
+
+	private async initializeMap(): Promise<void> {
 		if (this.map) return;
 
 		// Set initial map height based on context
@@ -144,10 +150,13 @@ export class MapView extends BasesView {
 			this.mapEl.style.height = '';
 		}
 
+		// Get the map style (may involve fetching remote style JSON)
+		const mapStyle = await this.getMapStyle();
+
 		// Initialize MapLibre GL JS map with configured tiles or default style
 		this.map = new Map({
 			container: this.mapEl,
-			style: this.getMapStyle(),
+			style: mapStyle,
 			center: [this.center[1], this.center[0]], // MapLibre uses [lng, lat]
 			zoom: this.defaultZoom,
 			minZoom: this.minZoom,
@@ -155,6 +164,10 @@ export class MapView extends BasesView {
 		});
 
 		this.map.addControl(new CustomZoomControl(), 'top-right');
+
+		this.map.on('error', (e) => {
+			console.warn('Map error:', e);
+		});
 
 		// Ensure the center and zoom are set after map loads (in case the style loading overrides it)
 		this.map.on('load', () => {
@@ -208,11 +221,11 @@ export class MapView extends BasesView {
 	public onDataUpdated(): void {
 		this.containerEl.removeClass('is-loading');
 		this.loadConfig();
-		this.initializeMap();
-
-		if (this.map && this.data) {
-			this.updateMarkers();
-		}
+		void this.initializeMap().then(() => {
+			if (this.map && this.data) {
+				this.updateMarkers();
+			}
+		});
 	}
 
 	private loadConfig(): void {
@@ -239,7 +252,7 @@ export class MapView extends BasesView {
 		this.mapTilesDark = this.getArrayConfig('mapTilesDark');
 
 		// Apply configurations to existing map
-		this.applyConfigToMap();
+		void this.applyConfigToMap();
 	}
 
 	private getNumericConfig(key: string, defaultValue: number, min?: number, max?: number): number {
@@ -286,7 +299,7 @@ export class MapView extends BasesView {
 		return DEFAULT_MAP_CENTER;
 	}
 
-	private applyConfigToMap(): void {
+	private async applyConfigToMap(): Promise<void> {
 		if (!this.map) return;
 
 		// Update map constraints
@@ -294,7 +307,7 @@ export class MapView extends BasesView {
 		this.map.setMaxZoom(this.maxZoom);
 
 		// Update map style if tiles configuration changed
-		const newStyle = this.getMapStyle();
+		const newStyle = await this.getMapStyle();
 		const currentStyle = this.map.getStyle();
 		if (JSON.stringify(newStyle) !== JSON.stringify(currentStyle)) {
 			this.map.setStyle(newStyle);
@@ -326,7 +339,7 @@ export class MapView extends BasesView {
 	}
 
 
-	private getMapStyle(): string | StyleSpecification {
+	private async getMapStyle(): Promise<string | StyleSpecification> {
 		const isDark = this.app.isDarkMode();
 		const tileUrls = isDark && this.mapTilesDark.length > 0 ? this.mapTilesDark : this.mapTiles;
 
@@ -335,7 +348,28 @@ export class MapView extends BasesView {
 			return 'https://tiles.openfreemap.org/styles/bright';
 		}
 
-		// Create a custom style with the configured tile sources
+		// If only one URL is provided and it doesn't look like a tile template, treat it as a style URL
+		if (tileUrls.length === 1 && !this.isTileTemplateUrl(tileUrls[0])) {
+			// Try to fetch the style as JSON to avoid CORS/CSP issues
+			try {
+				const response = await fetch(tileUrls[0]);
+				if (response.ok) {
+					const styleJson = await response.json();
+					// Extract access token from URL
+					const accessTokenMatch = tileUrls[0].match(/access_token=([^&]+)/);
+					const accessToken = accessTokenMatch ? accessTokenMatch[1] : '';
+					// Transform mapbox:// protocol URLs to HTTPS URLs
+					const transformedStyle = transformMapboxStyle(styleJson, accessToken);
+					return transformedStyle as StyleSpecification;
+				}
+			} catch (error) {
+				console.warn('Failed to fetch style JSON, falling back to URL:', error);
+			}
+			// If fetch fails, fall back to returning the URL directly
+			return tileUrls[0];
+		}
+
+		// Create a custom style with the configured tile sources (raster tiles)
 		const spec: StyleSpecification = {
 			version: 8,
 			sources: {},
@@ -356,6 +390,11 @@ export class MapView extends BasesView {
 			});
 		});
 		return spec;
+	}
+
+	private isTileTemplateUrl(url: string): boolean {
+		// Check if the URL contains tile template placeholders
+		return url.includes('{z}') || url.includes('{x}') || url.includes('{y}');
 	}
 
 	private showMapContextMenu(evt: MouseEvent): void {
