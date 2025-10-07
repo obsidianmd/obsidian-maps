@@ -342,30 +342,39 @@ export class MapView extends BasesView {
 		const isDark = this.app.isDarkMode();
 		const tileUrls = isDark && this.mapTilesDark.length > 0 ? this.mapTilesDark : this.mapTiles;
 
-		// If no custom tiles are configured, use default OpenFreeMap style
+		// Determine style URL: use custom if provided, otherwise use default style
+		let styleUrl: string;
 		if (tileUrls.length === 0) {
-			return isDark ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/bright';
+			// No custom tiles configured, use default
+			styleUrl = isDark ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/bright';
+		} else if (tileUrls.length === 1 && !this.isTileTemplateUrl(tileUrls[0])) {
+			// Single URL that's not a tile template, treat as style URL
+			styleUrl = tileUrls[0];
+		} else {
+			// Multiple URLs or tile template URLs - create custom raster style (skip to bottom)
+			styleUrl = '';
 		}
 
-		// If only one URL is provided and it doesn't look like a tile template, treat it as a style URL
-		if (tileUrls.length === 1 && !this.isTileTemplateUrl(tileUrls[0])) {
-			// Try to fetch the style as JSON to avoid CORS/CSP issues
+		// Fetch style JSON for any style URL (default or custom) to avoid CORS issues
+		if (styleUrl) {
 			try {
-				const response = await fetch(tileUrls[0]);
+				const response = await fetch(styleUrl);
 				if (response.ok) {
 					const styleJson = await response.json();
-					// Extract access token from URL
-					const accessTokenMatch = tileUrls[0].match(/access_token=([^&]+)/);
+					// Extract access token from URL for Mapbox styles
+					const accessTokenMatch = styleUrl.match(/access_token=([^&]+)/);
 					const accessToken = accessTokenMatch ? accessTokenMatch[1] : '';
-					// Transform mapbox:// protocol URLs to HTTPS URLs
-					const transformedStyle = transformMapboxStyle(styleJson, accessToken);
+					// Transform mapbox:// protocol URLs to HTTPS URLs if needed
+					const transformedStyle = accessToken 
+						? transformMapboxStyle(styleJson, accessToken)
+						: styleJson;
 					return transformedStyle as StyleSpecification;
 				}
 			} catch (error) {
 				console.warn('Failed to fetch style JSON, falling back to URL:', error);
 			}
 			// If fetch fails, fall back to returning the URL directly
-			return tileUrls[0];
+			return styleUrl;
 		}
 
 		// Create a custom style with the configured tile sources (raster tiles)

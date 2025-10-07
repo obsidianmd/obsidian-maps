@@ -135,16 +135,38 @@ function normalizeSourceURL(url: string, accessToken: string): string {
  */
 function normalizeSpriteURL(url: string, _format: string, _extension: string, accessToken: string): string {
 	const urlObject = parseUrl(url);
-	const path = urlObject.path.split('.');
-	let properPath = path[0];
-	const extension = path[1] || 'json';
-	let format = '';
+	
+	// Parse the path to extract username and style_id
+	// Format: /username/style_id/draft_token or /username/style_id
+	const pathParts = urlObject.path.split('/').filter(part => part.length > 0);
+	
+	// Only use username and style_id (first two parts), ignore draft/version tokens
+	const username = pathParts[0];
+	const styleId = pathParts[1];
+	
+	if (!username || !styleId) {
+		// Fallback to old behavior if path format is unexpected
+		const path = urlObject.path.split('.');
+		let properPath = path[0];
+		const extension = path[1] || 'json';
+		let format = '';
 
-	if (properPath.indexOf('@2x') > -1) {
-		properPath = properPath.split('@2x')[0];
+		if (properPath.indexOf('@2x') > -1) {
+			properPath = properPath.split('@2x')[0];
+			format = '@2x';
+		}
+		urlObject.path = `/styles/v1${properPath}/sprite${format}.${extension}`;
+		return formatUrl(urlObject, accessToken);
+	}
+	
+	// Check for @2x format in the original URL
+	let format = '';
+	if (url.indexOf('@2x') > -1) {
 		format = '@2x';
 	}
-	urlObject.path = `/styles/v1${properPath}/sprite${format}.${extension}`;
+	
+	// Construct proper Mapbox sprite URL
+	urlObject.path = `/styles/v1/${username}/${styleId}/sprite${format}`;
 	return formatUrl(urlObject, accessToken);
 }
 
