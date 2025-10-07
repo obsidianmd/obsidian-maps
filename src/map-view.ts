@@ -305,6 +305,26 @@ export class MapView extends BasesView {
 		this.map.setMinZoom(this.minZoom);
 		this.map.setMaxZoom(this.maxZoom);
 
+		// Clamp current zoom to new min/max bounds
+		const currentZoom = this.map.getZoom();
+		if (currentZoom < this.minZoom) {
+			this.map.setZoom(this.minZoom);
+		} else if (currentZoom > this.maxZoom) {
+			this.map.setZoom(this.maxZoom);
+		}
+
+		// Update zoom if defaultZoom config is set
+		const hasConfiguredZoom = this.config.get('defaultZoom') != null;
+		if (hasConfiguredZoom) {
+			this.map.setZoom(this.defaultZoom);
+		}
+
+		// Update center if center config is set
+		const hasConfiguredCenter = this.center[0] !== 0 || this.center[1] !== 0;
+		if (hasConfiguredCenter) {
+			this.map.setCenter([this.center[1], this.center[0]]); // MapLibre uses [lng, lat]
+		}
+
 		// Update map style if tiles configuration changed
 		const newStyle = await this.getMapStyle();
 		const currentStyle = this.map.getStyle();
