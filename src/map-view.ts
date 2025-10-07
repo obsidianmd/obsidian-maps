@@ -256,7 +256,7 @@ export class MapView extends BasesView {
 
 	private getNumericConfig(key: string, defaultValue: number, min?: number, max?: number): number {
 		const value = this.config.get(key);
-		if (!value || !Number.isNumber(value)) return defaultValue;
+		if (value == null || typeof value !== 'number') return defaultValue;
 
 		let result = value;
 		if (min !== undefined) result = Math.max(min, result);
