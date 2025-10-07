@@ -125,8 +125,7 @@ export class MapView extends BasesView {
 	}
 
 	private onThemeChange = (): void => {
-		if (this.map && (this.mapTiles.length > 0 || this.mapTilesDark.length > 0)) {
-			// Update map style when theme changes
+		if (this.map) {
 			void this.updateMapStyle();
 		}
 	};
@@ -345,7 +344,7 @@ export class MapView extends BasesView {
 
 		// If no custom tiles are configured, use default OpenFreeMap style
 		if (tileUrls.length === 0) {
-			return 'https://tiles.openfreemap.org/styles/bright';
+			return isDark ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/bright';
 		}
 
 		// If only one URL is provided and it doesn't look like a tile template, treat it as a style URL
