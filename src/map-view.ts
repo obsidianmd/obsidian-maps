@@ -12,6 +12,7 @@ import {
 	ViewOption,
 	setIcon,
 	Value,
+	NullValue,
 } from 'obsidian';
 import { LngLatBounds, LngLatLike, Map, Marker, Popup, StyleSpecification } from 'maplibre-gl';
 import { transformMapboxStyle } from './mapbox-transform';
@@ -282,20 +283,19 @@ export class MapView extends BasesView {
 	}
 
 	private getCenterFromConfig(): [number, number] {
-		const centerConfig = this.config.get('center');
-		if (!centerConfig || !String.isString(centerConfig)) {
-			return DEFAULT_MAP_CENTER;
-		}
+		let centerConfig = this.config.getEvaluatedFormula(this, 'center');
 
-		const parts = centerConfig.trim().split(',');
-		if (parts.length >= 2) {
-			const lat = parseFloat(parts[0].trim());
-			const lng = parseFloat(parts[1].trim());
-			if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-				return [lat, lng];
+		// Support for legacy string format.
+		if (Value.equals(centerConfig, NullValue.value)) {
+			const centerConfigStr = this.config.get('center');
+			if (String.isString(centerConfigStr)) {
+				centerConfig = new StringValue(centerConfigStr);
+			}
+			else {
+				return DEFAULT_MAP_CENTER;
 			}
 		}
-		return DEFAULT_MAP_CENTER;
+		return this.coordinateFromValue(centerConfig) || DEFAULT_MAP_CENTER;
 	}
 
 	private async applyConfigToMap(): Promise<void> {
@@ -385,7 +385,7 @@ export class MapView extends BasesView {
 					const accessTokenMatch = styleUrl.match(/access_token=([^&]+)/);
 					const accessToken = accessTokenMatch ? accessTokenMatch[1] : '';
 					// Transform mapbox:// protocol URLs to HTTPS URLs if needed
-					const transformedStyle = accessToken 
+					const transformedStyle = accessToken
 						? transformMapboxStyle(styleJson, accessToken)
 						: styleJson;
 					return transformedStyle as StyleSpecification;
@@ -453,7 +453,7 @@ export class MapView extends BasesView {
 			.setIcon('lucide-map-pin')
 			.onClick(() => {
 				// Set the current center as the default coordinates
-				const coordString = `${currentLat}, ${currentLng}`;
+				const coordListStr = `[${currentLat}, ${currentLng}]`;
 
 				// 1. Update the component's internal state immediately.
 				// This ensures that if a re-render is triggered, its logic will use the
@@ -461,7 +461,7 @@ export class MapView extends BasesView {
 				this.center = [currentLat, currentLng];
 
 				// 2. Set the config value, which will be saved.
-				this.config.set('center', coordString);
+				this.config.set('center', coordListStr);
 
 				// 3. Immediately move the map for instant user feedback.
 				this.map?.setCenter([currentLng, currentLat]); // MapLibre uses [lng, lat]
@@ -491,7 +491,17 @@ export class MapView extends BasesView {
 		// Create markers for entries with valid coordinates
 		const validMarkers: MapMarker[] = this.markers = [];
 		for (const entry of this.data.data) {
-			const coordinates = this.extractCoordinates(entry);
+			if (!entry) continue;
+
+			let coordinates: [number, number] | null = null;
+			try {
+				const value = entry.getValue(this.coordinatesProp);
+				coordinates = this.coordinateFromValue(value);
+			}
+			catch (error) {
+				console.error(`Error extracting coordinates for ${entry.file.name}:`, error);
+			}
+
 			if (coordinates) {
 				const marker = this.createMarker(entry, coordinates);
 				if (marker) {
@@ -524,44 +534,36 @@ export class MapView extends BasesView {
 		}
 	}
 
-	private extractCoordinates(entry: BasesEntry): [number, number] | null {
-		if (!this.coordinatesProp) return null;
+	private coordinateFromValue(value: Value | null): [number, number] | null {
+		let lat: number | null = null;
+		let lng: number | null = null;
 
-		try {
-			const value = entry.getValue(this.coordinatesProp);
-
-			if (!value) return null;
-
-			// Handle list values (e.g., ["34.1395597", "-118.3870991"] or [34.1395597, -118.3870991])
-			if (value instanceof ListValue) {
-				if (value.length() >= 2) {
-					const lat = this.parseCoordinate(value.get(0));
-					const lng = this.parseCoordinate(value.get(1));
-					if (lat !== null && lng !== null) {
-						return [lat, lng];
-					}
-				}
-			}
-			// Handle string values (e.g., "34.1395597,-118.3870991" or "34.1395597, -118.3870991")
-			else if (value instanceof StringValue) {
-				const stringData = value.toString().trim();
-
-				// Split by comma and handle various spacing
-				const parts = stringData.split(',');
-				if (parts.length >= 2) {
-					const lat = this.parseCoordinate(parts[0].trim());
-					const lng = this.parseCoordinate(parts[1].trim());
-					if (lat !== null && lng !== null) {
-						return [lat, lng];
-					}
-				}
+		// Handle list values (e.g., ["34.1395597", "-118.3870991"] or [34.1395597, -118.3870991])
+		if (value instanceof ListValue) {
+			if (value.length() >= 2) {
+				lat = this.parseCoordinate(value.get(0));
+				lng = this.parseCoordinate(value.get(1));
 			}
 		}
-		catch (error) {
-			console.error(`Error extracting coordinates for ${entry.file.name}:`, error);
+		// Handle string values (e.g., "34.1395597,-118.3870991" or "34.1395597, -118.3870991")
+		else if (value instanceof StringValue) {
+			// Split by comma and handle various spacing
+			const parts = value.toString().trim().split(',');
+			if (parts.length >= 2) {
+				lat = this.parseCoordinate(parts[0].trim());
+				lng = this.parseCoordinate(parts[1].trim());
+			}
+		}
+
+		if (lat && lng && this.verifyLatLng(lat, lng)) {
+			return [lat, lng];
 		}
 
 		return null;
+	}
+
+	private verifyLatLng(lat: number, lng: number): boolean {
+		return !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 	}
 
 	private parseCoordinate(value: unknown): number | null {
@@ -930,9 +932,9 @@ export class MapView extends BasesView {
 
 					{
 						displayName: 'Center coordinates',
-						type: 'text',
+						type: 'formula',
 						key: 'center',
-						placeholder: '37.75904, -119.02042',
+						placeholder: '[latitude, longitude]',
 					},
 					{
 						displayName: 'Default zoom',
