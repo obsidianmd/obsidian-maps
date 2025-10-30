@@ -232,7 +232,7 @@ export class MapView extends BasesView {
 				this.updateMarkers();
 			}
 			// Apply config to map on first load or when config changes
-			if (this.isFirstLoad || configChanged) {
+			if (configChanged) {
 				void this.applyConfigToMap();
 				this.lastConfigSnapshot = configSnapshot;
 				this.isFirstLoad = false;
@@ -464,7 +464,7 @@ export class MapView extends BasesView {
 			.setSection('action')
 			.setIcon('square-pen')
 			.onClick(() => {
-				void this.createFileForView('Untitled', (frontmatter) => {
+				void this.createFileForView('', (frontmatter) => {
 					// Pre-fill coordinates if a coordinates property is configured
 					if (this.coordinatesProp) {
 						// Remove 'note.' prefix if present
