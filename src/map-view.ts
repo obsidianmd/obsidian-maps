@@ -739,6 +739,8 @@ export class MapView extends BasesView {
 
 
 		markerEl.addEventListener('contextmenu', (evt) => {
+			evt.stopPropagation();
+			
 			const file = entry.file;
 			const menu = Menu.forEvent(evt);
 
