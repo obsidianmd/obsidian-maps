@@ -471,7 +471,7 @@ export class MapView extends BasesView {
 						const propertyKey = this.coordinatesProp.startsWith('note.') 
 							? this.coordinatesProp.slice(5) 
 							: this.coordinatesProp;
-						frontmatter[propertyKey] = [currentLat, currentLng];
+							frontmatter[propertyKey] = [currentLat.toString(), currentLng.toString()];
 					}
 				});
 			})
