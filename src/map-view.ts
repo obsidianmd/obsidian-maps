@@ -42,7 +42,7 @@ class CustomZoomControl {
 			cls: 'maplibregl-ctrl-zoom-in',
 			attr: { 'aria-label': 'Zoom in' }
 		});
-		setIcon(zoomInButton, 'lucide-plus');
+		setIcon(zoomInButton, 'plus');
 
 		zoomInButton.addEventListener('click', () => {
 			map.zoomIn();
@@ -53,7 +53,7 @@ class CustomZoomControl {
 			cls: 'maplibregl-ctrl-zoom-out',
 			attr: { 'aria-label': 'Zoom out' }
 		});
-		setIcon(zoomOutButton, 'lucide-minus');
+		setIcon(zoomOutButton, 'minus');
 
 		zoomOutButton.addEventListener('click', () => {
 			map.zoomOut();
@@ -91,6 +91,8 @@ export class MapView extends BasesView {
 	private mapTilesDark: string[] = []; // Custom tile URLs for dark mode
 	private pendingMapState: { center?: LngLatLike, zoom?: number } | null = null;
 	private sharedPopup: Popup | null = null;
+	private isFirstLoad = true;
+	private lastConfigSnapshot: string | null = null;
 
 	private popupHideTimeout: number | null = null;
 	private popupHideTimeoutWin: Window | null = null;
@@ -220,11 +222,34 @@ export class MapView extends BasesView {
 
 	public onDataUpdated(): void {
 		this.containerEl.removeClass('is-loading');
+		
+		const configSnapshot = this.getConfigSnapshot();
+		const configChanged = this.lastConfigSnapshot !== configSnapshot;
+		
 		this.loadConfig();
 		void this.initializeMap().then(() => {
 			if (this.map && this.data) {
 				this.updateMarkers();
 			}
+			// Apply config to map on first load or when config changes
+			if (configChanged) {
+				void this.applyConfigToMap();
+				this.lastConfigSnapshot = configSnapshot;
+				this.isFirstLoad = false;
+			}
+		});
+	}
+
+	private getConfigSnapshot(): string {
+		// Create a snapshot of config values that affect map display
+		return JSON.stringify({
+			center: this.config.get('center'),
+			defaultZoom: this.config.get('defaultZoom'),
+			minZoom: this.config.get('minZoom'),
+			maxZoom: this.config.get('maxZoom'),
+			mapHeight: this.config.get('mapHeight'),
+			mapTiles: this.config.get('mapTiles'),
+			mapTilesDark: this.config.get('mapTilesDark'),
 		});
 	}
 
@@ -250,9 +275,6 @@ export class MapView extends BasesView {
 		// Load map tiles configurations
 		this.mapTiles = this.getArrayConfig('mapTiles');
 		this.mapTilesDark = this.getArrayConfig('mapTilesDark');
-
-		// Apply configurations to existing map
-		void this.applyConfigToMap();
 	}
 
 	private getNumericConfig(key: string, defaultValue: number, min?: number, max?: number): number {
@@ -438,9 +460,27 @@ export class MapView extends BasesView {
 
 		const menu = Menu.forEvent(evt);
 		menu.addItem(item => item
+			.setTitle('New note')
+			.setSection('action')
+			.setIcon('square-pen')
+			.onClick(() => {
+				void this.createFileForView('', (frontmatter) => {
+					// Pre-fill coordinates if a coordinates property is configured
+					if (this.coordinatesProp) {
+						// Remove 'note.' prefix if present
+						const propertyKey = this.coordinatesProp.startsWith('note.') 
+							? this.coordinatesProp.slice(5) 
+							: this.coordinatesProp;
+						frontmatter[propertyKey] = [currentLat, currentLng];
+					}
+				});
+			})
+		);
+
+		menu.addItem(item => item
 			.setTitle('Copy coordinates')
 			.setSection('action')
-			.setIcon('lucide-copy')
+			.setIcon('copy')
 			.onClick(() => {
 				const coordString = `${currentLat}, ${currentLng}`;
 				void navigator.clipboard.writeText(coordString);
@@ -450,7 +490,7 @@ export class MapView extends BasesView {
 		menu.addItem(item => item
 			.setTitle('Set default center point')
 			.setSection('action')
-			.setIcon('lucide-map-pin')
+			.setIcon('map-pin')
 			.onClick(() => {
 				// Set the current center as the default coordinates
 				const coordListStr = `[${currentLat}, ${currentLng}]`;
@@ -471,7 +511,7 @@ export class MapView extends BasesView {
 		menu.addItem(item => item
 			.setTitle(`Set default zoom (${currentZoom})`)
 			.setSection('action')
-			.setIcon('lucide-crosshair')
+			.setIcon('crosshair')
 			.onClick(() => {
 				this.config.set('defaultZoom', currentZoom);
 			})
@@ -521,7 +561,7 @@ export class MapView extends BasesView {
 			bounds.extend([lng, lat]);
 		});
 
-		// Apply pending map state if available
+		// Apply pending map state if available (for restoring ephemeral state)
 		if (this.pendingMapState && this.map) {
 			const { center, zoom } = this.pendingMapState;
 			if (center) {
@@ -699,6 +739,8 @@ export class MapView extends BasesView {
 
 
 		markerEl.addEventListener('contextmenu', (evt) => {
+			evt.stopPropagation();
+			
 			const file = entry.file;
 			const menu = Menu.forEvent(evt);
 
@@ -708,7 +750,7 @@ export class MapView extends BasesView {
 			menu.addItem(item => item
 				.setSection('action')
 				.setTitle('Copy coordinates')
-				.setIcon('lucide-map-pin')
+				.setIcon('map-pin')
 				.onClick(() => {
 					const coordString = `${lat}, ${lng}`;
 					void navigator.clipboard.writeText(coordString);
@@ -717,7 +759,7 @@ export class MapView extends BasesView {
 			menu.addItem(item => item
 				.setSection('danger')
 				.setTitle('Delete file')
-				.setIcon('lucide-trash-2')
+				.setIcon('trash-2')
 				.setWarning(true)
 				.onClick(() => this.app.fileManager.promptForDeletion(file)));
 		});
