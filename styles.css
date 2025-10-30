@@ -238,17 +238,11 @@ body {
 
 .maplibregl-canvas-container.maplibregl-interactive,
 .maplibregl-ctrl-group button.maplibregl-ctrl-compass {
-	cursor: grab;
 	user-select: none;
 }
 
 .maplibregl-canvas-container.maplibregl-interactive.maplibregl-track-pointer {
 	cursor: pointer;
-}
-
-.maplibregl-canvas-container.maplibregl-interactive:active,
-.maplibregl-ctrl-group button.maplibregl-ctrl-compass:active {
-	cursor: grabbing;
 }
 
 .maplibregl-canvas-container.maplibregl-touch-zoom-rotate,
