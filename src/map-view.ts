@@ -222,10 +222,10 @@ export class MapView extends BasesView {
 
 	public onDataUpdated(): void {
 		this.containerEl.removeClass('is-loading');
-		
+
 		const configSnapshot = this.getConfigSnapshot();
 		const configChanged = this.lastConfigSnapshot !== configSnapshot;
-		
+
 		this.loadConfig();
 		void this.initializeMap().then(() => {
 			if (this.map && this.data) {
@@ -384,61 +384,81 @@ export class MapView extends BasesView {
 		const isDark = this.app.isDarkMode();
 		const tileUrls = isDark && this.mapTilesDark.length > 0 ? this.mapTilesDark : this.mapTiles;
 
-		// Determine style URL: use custom if provided, otherwise use default style
 		let styleUrl: string;
 		if (tileUrls.length === 0) {
-			// No custom tiles configured, use default
-			styleUrl = isDark ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/bright';
+			styleUrl = isDark
+				? 'https://tiles.openfreemap.org/styles/dark'
+				: 'https://tiles.openfreemap.org/styles/bright';
 		} else if (tileUrls.length === 1 && !this.isTileTemplateUrl(tileUrls[0])) {
-			// Single URL that's not a tile template, treat as style URL
 			styleUrl = tileUrls[0];
 		} else {
-			// Multiple URLs or tile template URLs - create custom raster style (skip to bottom)
 			styleUrl = '';
 		}
 
-		// Fetch style JSON for any style URL (default or custom) to avoid CORS issues
 		if (styleUrl) {
 			try {
 				const response = await fetch(styleUrl);
 				if (response.ok) {
-					const styleJson = await response.json();
+					let styleJson = await response.json();
+
 					// Extract access token from URL for Mapbox styles
 					const accessTokenMatch = styleUrl.match(/access_token=([^&]+)/);
 					const accessToken = accessTokenMatch ? accessTokenMatch[1] : '';
-					// Transform mapbox:// protocol URLs to HTTPS URLs if needed
-					const transformedStyle = accessToken
-						? transformMapboxStyle(styleJson, accessToken)
-						: styleJson;
-					return transformedStyle as StyleSpecification;
+
+					if (accessToken) {
+						styleJson = transformMapboxStyle(styleJson, accessToken);
+					}
+
+					// 🩹 FIX: Replace vector sources to avoid “Request is not defined”
+					for (const [id, source] of Object.entries(styleJson.sources)) {
+						const src: any = source;
+						if (src.type === 'vector') {
+							console.warn(`⚠️ Converting vector source "${id}" to raster (Obsidian doesn't support Request).`);
+							styleJson.sources[id] = {
+								type: 'raster',
+								tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+								tileSize: 256,
+							};
+							styleJson.layers = styleJson.layers.filter((l: any) => l.source !== id);
+							styleJson.layers.push({
+								id: `raster-${id}`,
+								type: 'raster',
+								source: id,
+							});
+						}
+					}
+
+					return styleJson as StyleSpecification;
 				}
 			} catch (error) {
 				console.warn('Failed to fetch style JSON, falling back to URL:', error);
 			}
-			// If fetch fails, fall back to returning the URL directly
+
 			return styleUrl;
 		}
 
-		// Create a custom style with the configured tile sources (raster tiles)
+		// Fallback: custom raster tile URLs
 		const spec: StyleSpecification = {
 			version: 8,
 			sources: {},
 			layers: [],
-		}
+		};
+
 		tileUrls.forEach((tileUrl, index) => {
 			const sourceId = `custom-tiles-${index}`;
 			spec.sources[sourceId] = {
 				type: 'raster',
 				tiles: [tileUrl],
-				tileSize: 256
+				tileSize: 256,
 			};
 
 			spec.layers.push({
 				id: `custom-layer-${index}`,
 				type: 'raster',
-				source: sourceId
+				source: sourceId,
 			});
 		});
+
 		return spec;
 	}
 
@@ -468,10 +488,10 @@ export class MapView extends BasesView {
 					// Pre-fill coordinates if a coordinates property is configured
 					if (this.coordinatesProp) {
 						// Remove 'note.' prefix if present
-						const propertyKey = this.coordinatesProp.startsWith('note.') 
-							? this.coordinatesProp.slice(5) 
+						const propertyKey = this.coordinatesProp.startsWith('note.')
+							? this.coordinatesProp.slice(5)
 							: this.coordinatesProp;
-							frontmatter[propertyKey] = [currentLat.toString(), currentLng.toString()];
+						frontmatter[propertyKey] = [currentLat.toString(), currentLng.toString()];
 					}
 				});
 			})
@@ -740,7 +760,7 @@ export class MapView extends BasesView {
 
 		markerEl.addEventListener('contextmenu', (evt) => {
 			evt.stopPropagation();
-			
+
 			const file = entry.file;
 			const menu = Menu.forEvent(evt);
 
