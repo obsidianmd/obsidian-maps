@@ -233,9 +233,13 @@ export class MapView extends BasesView {
 			}
 			// Apply config to map on first load or when config changes
 			if (configChanged) {
-				void this.applyConfigToMap();
+				void this.applyConfigToMap(this.lastConfigSnapshot, configSnapshot);
 				this.lastConfigSnapshot = configSnapshot;
 				this.isFirstLoad = false;
+			}
+			// Update center when active file changes
+			else if (this.map && !this.isFirstLoad) {
+				this.updateCenter();
 			}
 		});
 	}
@@ -305,7 +309,21 @@ export class MapView extends BasesView {
 	}
 
 	private getCenterFromConfig(): [number, number] {
-		let centerConfig = this.config.getEvaluatedFormula(this, 'center');
+		let centerConfig: Value;
+		
+		try {
+			centerConfig = this.config.getEvaluatedFormula(this, 'center');
+		} catch (error) {
+			// Formula evaluation failed (e.g., this.file is null when no active file)
+			// Fall back to raw config value
+			const centerConfigStr = this.config.get('center');
+			if (String.isString(centerConfigStr)) {
+				centerConfig = new StringValue(centerConfigStr);
+			}
+			else {
+				return DEFAULT_MAP_CENTER;
+			}
+		}
 
 		// Support for legacy string format.
 		if (Value.equals(centerConfig, NullValue.value)) {
@@ -320,8 +338,45 @@ export class MapView extends BasesView {
 		return this.coordinateFromValue(centerConfig) || DEFAULT_MAP_CENTER;
 	}
 
-	private async applyConfigToMap(): Promise<void> {
+	private updateZoom(): void {
 		if (!this.map) return;
+
+		const hasConfiguredZoom = this.config.get('defaultZoom') != null;
+		if (hasConfiguredZoom) {
+			this.map.setZoom(this.defaultZoom);
+		}
+	}
+
+	private updateCenter(): void {
+		if (!this.map) return;
+
+		const hasConfiguredCenter = this.center[0] !== 0 || this.center[1] !== 0;
+		if (hasConfiguredCenter) {
+			// Only recenter if the evaluated coordinates actually changed
+			const currentCenter = this.map.getCenter();
+			if (!currentCenter) return; // Map not fully initialized yet
+			
+			const targetCenter: [number, number] = [this.center[1], this.center[0]]; // MapLibre uses [lng, lat]
+			const centerActuallyChanged = Math.abs(currentCenter.lng - targetCenter[0]) > 0.00001 || 
+				Math.abs(currentCenter.lat - targetCenter[1]) > 0.00001;
+			if (centerActuallyChanged) {
+				this.map.setCenter(targetCenter);
+			}
+		}
+	}
+
+	private async applyConfigToMap(oldSnapshot: string | null, newSnapshot: string): Promise<void> {
+		if (!this.map) return;
+
+		// Parse snapshots to detect specific changes
+		const oldConfig = oldSnapshot ? JSON.parse(oldSnapshot) : null;
+		const newConfig = JSON.parse(newSnapshot);
+		
+		// Detect what changed
+		const centerConfigChanged = oldConfig?.center !== newConfig.center;
+		const zoomConfigChanged = oldConfig?.defaultZoom !== newConfig.defaultZoom;
+		const tilesChanged = oldConfig?.mapTiles !== newConfig.mapTiles || oldConfig?.mapTilesDark !== newConfig.mapTilesDark;
+		const heightChanged = oldConfig?.mapHeight !== newConfig.mapHeight;
 
 		// Update map constraints
 		this.map.setMinZoom(this.minZoom);
@@ -335,35 +390,36 @@ export class MapView extends BasesView {
 			this.map.setZoom(this.maxZoom);
 		}
 
-		// Update zoom if defaultZoom config is set
-		const hasConfiguredZoom = this.config.get('defaultZoom') != null;
-		if (hasConfiguredZoom) {
-			this.map.setZoom(this.defaultZoom);
+		// Only update zoom on first load or when zoom config explicitly changed
+		if (this.isFirstLoad || zoomConfigChanged) {
+			this.updateZoom();
 		}
 
-		// Update center if center config is set
-		const hasConfiguredCenter = this.center[0] !== 0 || this.center[1] !== 0;
-		if (hasConfiguredCenter) {
-			this.map.setCenter([this.center[1], this.center[0]]); // MapLibre uses [lng, lat]
+		// Update center on first load or when center config changed
+		if (this.isFirstLoad || centerConfigChanged) {
+			this.updateCenter();
 		}
 
 		// Update map style if tiles configuration changed
-		const newStyle = await this.getMapStyle();
-		const currentStyle = this.map.getStyle();
-		if (JSON.stringify(newStyle) !== JSON.stringify(currentStyle)) {
-			this.map.setStyle(newStyle);
+		if (this.isFirstLoad || tilesChanged) {
+			const newStyle = await this.getMapStyle();
+			const currentStyle = this.map.getStyle();
+			if (JSON.stringify(newStyle) !== JSON.stringify(currentStyle)) {
+				this.map.setStyle(newStyle);
+			}
 		}
 
-		// Update map height for embedded views
-		if (this.isEmbedded()) {
-			this.mapEl.style.height = this.mapHeight + 'px';
+		// Update map height for embedded views if height changed
+		if (this.isFirstLoad || heightChanged) {
+			if (this.isEmbedded()) {
+				this.mapEl.style.height = this.mapHeight + 'px';
+			}
+			else {
+				this.mapEl.style.height = '';
+			}
+			// Resize map after height changes
+			this.map.resize();
 		}
-		else {
-			this.mapEl.style.height = '';
-		}
-
-		// Resize map after height changes
-		this.map.resize();
 	}
 
 	private isEmbedded(): boolean {
