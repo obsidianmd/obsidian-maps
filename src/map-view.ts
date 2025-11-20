@@ -37,13 +37,12 @@ class CustomZoomControl {
 	private containerEl: HTMLElement;
 
 	constructor() {
-		this.containerEl = createDiv('maplibregl-ctrl maplibregl-ctrl-group');
+		this.containerEl = createDiv('maplibregl-ctrl maplibregl-ctrl-group canvas-control-group mod-raised');
 	}
 
 	onAdd(map: Map): HTMLElement {
-		const zoomInButton = this.containerEl.createEl('button', {
-			type: 'button',
-			cls: 'maplibregl-ctrl-zoom-in',
+		const zoomInButton = this.containerEl.createEl('div', {
+			cls: 'maplibregl-ctrl-zoom-in canvas-control-item',
 			attr: { 'aria-label': 'Zoom in' }
 		});
 		setIcon(zoomInButton, 'plus');
@@ -52,9 +51,8 @@ class CustomZoomControl {
 			map.zoomIn();
 		});
 
-		const zoomOutButton = this.containerEl.createEl('button', {
-			type: 'button',
-			cls: 'maplibregl-ctrl-zoom-out',
+		const zoomOutButton = this.containerEl.createEl('div', {
+			cls: 'maplibregl-ctrl-zoom-out canvas-control-item',
 			attr: { 'aria-label': 'Zoom out' }
 		});
 		setIcon(zoomOutButton, 'minus');

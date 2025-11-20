@@ -34,68 +34,6 @@ body {
 		mix-blend-mode: var(--bases-map-blend-mode);
 	}
 
-	.maplibregl-map {
-		background-color: var(--background-primary);
-		width: 100% !important;
-		height: 100% !important;
-		border-radius: var(--radius-s);
-	}
-
-	.maplibregl-ctrl-group {
-		border-radius: var(--radius-s);
-		background-color: var(--background-primary);
-		border: 1px solid var(--background-modifier-border);
-		box-shadow: var(--input-shadow);
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-
-		button {
-			border-radius: 0;
-			box-shadow: none;
-			height: auto;
-			display: flex;
-			line-height: 1;
-			font-size: inherit;
-			align-items: center;
-			justify-content: center;
-			cursor: var(--cursor);
-			padding: var(--size-4-2);
-			color: var(--text-muted);
-			background-color: var(--interactive-normal);
-			--icon-size: var(--icon-s);
-			--icon-stroke: var(--icon-s-stroke-width);
-
-			&:hover {
-				background-color: var(--interactive-hover);
-				color: var(--text-normal);
-			}
-
-			&:not(:last-child) {
-				border-bottom: 1px solid var(--background-modifier-border);
-			}
-		}
-	}
-
-	.maplibregl-ctrl-attrib {
-		background-color: rgba(var(--mono-rgb-0), 0.8);
-		color: var(--text-muted);
-		font-size: var(--font-ui-smaller);
-		padding: 1px 8px;
-
-		a {
-			color: var(--text-muted);
-		}
-	}
-
-	.maplibregl-popup-content {
-		background-color: var(--background-primary);
-		color: var(--text-normal);
-		border-radius: var(--radius-m);
-		box-shadow: var(--shadow-s);
-		border: var(--modal-border-width) solid var(--modal-border-color);
-	}
-
 	&.is-loading {
 		display: flex;
 		align-items: center;
@@ -152,10 +90,34 @@ body {
 	padding: 0 var(--size-4-2);
 }
 
+
 .maplibregl-map {
+	background-color: var(--background-primary);
+	width: 100% !important;
+	height: 100% !important;
+	border-radius: var(--radius-s);
 	overflow: hidden;
 	position: relative;
 	-webkit-tap-highlight-color: rgb(0, 0, 0, 0);
+}
+
+.maplibregl-ctrl-attrib {
+	background-color: rgba(var(--mono-rgb-0), 0.8);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	padding: 1px 8px;
+
+	a {
+		color: var(--text-muted);
+	}
+}
+
+.maplibregl-popup-content {
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+	border-radius: var(--radius-m);
+	box-shadow: var(--shadow-s);
+	border: var(--modal-border-width) solid var(--modal-border-color);
 }
 
 .maplibregl-canvas {
@@ -207,51 +169,27 @@ body {
 }
 
 .maplibregl-ctrl-top-left {
-	top: 0;
-	left: 0;
+	top: var(--size-4-2);
+	left: var(--size-4-2);
 }
 
 .maplibregl-ctrl-top-right {
-	 top: 0;
-	 right: 0;
+	 top: var(--size-4-2);
+	 right: var(--size-4-2);
 	}
 
 .maplibregl-ctrl-bottom-left {
-	bottom: 0;
-	left: 0;
+	bottom: var(--size-4-2);
+	left: var(--size-4-2);
 }
 
 .maplibregl-ctrl-bottom-right {
-	 right: 0;
-	 bottom: 0;
+	 right: var(--size-4-2);
+	 bottom: var(--size-4-2);
 }
 
 .maplibregl-ctrl {
-	clear: both;
 	pointer-events: auto;
-
-	/* workaround for a Safari bug https://github.com/mapbox/mapbox-gl-js/issues/8185 */
-	transform: translate(0, 0);
-}
-
-.maplibregl-ctrl-top-left .maplibregl-ctrl {
-	margin: 10px 0 0 10px;
-	 float: left;
-}
-
-.maplibregl-ctrl-top-right .maplibregl-ctrl {
-	margin: 10px 10px 0 0;
-	float: right;
-}
-
-.maplibregl-ctrl-bottom-left .maplibregl-ctrl {
-	margin: 0 0 10px 10px;
-	float: left;
-}
-
-.maplibregl-ctrl-bottom-right .maplibregl-ctrl {
-	margin: 0 10px 10px 0;
-	float: right;
 }
 
 .maplibregl-ctrl button .maplibregl-ctrl-icon {
@@ -268,12 +206,6 @@ body {
 
 .maplibregl-ctrl button:disabled .maplibregl-ctrl-icon {
 	opacity: 0.25;
-}
-
-@media (hover: hover) {
-	.maplibregl-ctrl button:not(:disabled):hover {
-		background-color: rgb(0, 0, 0, 0.05);
-	}
 }
 
 .maplibregl-ctrl-group button:focus:only-child {
