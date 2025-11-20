@@ -849,13 +849,14 @@ export class MapView extends BasesView {
 		const radius = 12 * scale;
 		
 		ctx.fillStyle = resolvedColor;
-		ctx.strokeStyle = '#000000';
-		ctx.lineWidth = 1 * scale;
 		ctx.beginPath();
 		ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
 		ctx.fill();
+		
+		ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+		ctx.lineWidth = 1 * scale;
 		ctx.stroke();
-
+		
 		// Draw the icon or dot
 		if (icon) {
 			// Load and draw custom icon
