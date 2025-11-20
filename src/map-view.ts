@@ -30,8 +30,7 @@ interface MarkerFeature {
 
 interface MarkerFeatureProperties {
 	entryIndex: number;
-	icon?: string;
-	color?: string;
+	icon: string; // Composite image key combining icon and color
 }
 
 class CustomZoomControl {
@@ -764,64 +763,143 @@ export class MapView extends BasesView {
 	}
 
 	private async loadCustomIcons(markers: MarkerFeature[]): Promise<void> {
-		if (!this.map || !this.markerIconProp) return;
+		if (!this.map) return;
 
-		// Collect all unique icons that need to be loaded
-		const iconsToLoad: string[] = [];
+		// Collect all unique icon+color combinations that need to be loaded
+		const compositeImagesToLoad: Array<{ icon: string | null; color: string }> = [];
+		const uniqueKeys = new Set<string>();
+		
 		for (const markerData of markers) {
 			const icon = this.getCustomIcon(markerData.entry);
-			if (icon && !this.loadedIcons.has(icon)) {
-				iconsToLoad.push(icon);
+			const color = this.getCustomColor(markerData.entry) || '#8b5cf6';
+			const compositeKey = this.getCompositeImageKey(icon, color);
+			
+			if (!this.loadedIcons.has(compositeKey)) {
+				if (!uniqueKeys.has(compositeKey)) {
+					compositeImagesToLoad.push({ icon, color });
+					uniqueKeys.add(compositeKey);
+				}
 			}
 		}
 
-		// Load each icon as an SVG and add it to the map
-		for (const iconName of iconsToLoad) {
+		// Create composite images for each unique icon+color combination
+		for (const { icon, color } of compositeImagesToLoad) {
 			try {
-				// Create an SVG element with the icon
-				const iconDiv = createDiv();
-				setIcon(iconDiv, iconName);
-				const svgEl = iconDiv.querySelector('svg');
+				const compositeKey = this.getCompositeImageKey(icon, color);
+				const img = await this.createCompositeMarkerImage(icon, color);
 				
-				if (svgEl) {
-					// Convert SVG to data URL
-					const svgString = new XMLSerializer().serializeToString(svgEl);
-					const img = new Image();
-					img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
-					
-					await new Promise<void>((resolve, reject) => {
-						img.onload = () => {
-							if (this.map && !this.map.hasImage(iconName)) {
-								this.map.addImage(iconName, img);
-								this.loadedIcons.add(iconName);
-							}
-							resolve();
-						};
-						img.onerror = reject;
-					});
+				if (this.map && !this.map.hasImage(compositeKey)) {
+					this.map.addImage(compositeKey, img);
+					this.loadedIcons.add(compositeKey);
 				}
 			} catch (error) {
-				console.warn(`Failed to load icon ${iconName}:`, error);
+				console.warn(`Failed to create composite marker for icon ${icon}:`, error);
 			}
 		}
+	}
+
+	private getCompositeImageKey(icon: string | null, color: string): string {
+		return `marker-${icon || 'dot'}-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
+	}
+
+	private async createCompositeMarkerImage(icon: string | null, color: string): Promise<HTMLImageElement> {
+		// Create a high-resolution canvas for crisp rendering on retina displays
+		const scale = 4; // 4x resolution for crisp display
+		const size = 48 * scale; // High-res canvas
+		const canvas = document.createElement('canvas');
+		canvas.width = size;
+		canvas.height = size;
+		const ctx = canvas.getContext('2d');
+		
+		if (!ctx) {
+			throw new Error('Failed to get canvas context');
+		}
+
+		// Enable high-quality rendering
+		ctx.imageSmoothingEnabled = true;
+		ctx.imageSmoothingQuality = 'high';
+
+		// Draw the circle background (scaled up)
+		const centerX = size / 2;
+		const centerY = size / 2;
+		const radius = 12 * scale;
+		
+		ctx.fillStyle = color;
+		ctx.strokeStyle = '#000000';
+		ctx.lineWidth = 1 * scale;
+		ctx.beginPath();
+		ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+		ctx.fill();
+		ctx.stroke();
+
+		// Draw the icon or dot
+		if (icon) {
+			// Load and draw custom icon
+			const iconDiv = createDiv();
+			setIcon(iconDiv, icon);
+			const svgEl = iconDiv.querySelector('svg');
+			
+			if (svgEl) {
+				// Set SVG fill to white for better contrast
+				svgEl.setAttribute('fill', 'currentColor');
+				svgEl.style.color = '#ffffff';
+				
+				const svgString = new XMLSerializer().serializeToString(svgEl);
+				const iconImg = new Image();
+				iconImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+				
+				await new Promise<void>((resolve, reject) => {
+					iconImg.onload = () => {
+						// Draw icon centered and scaled
+						const iconSize = radius * 1.2;
+						ctx.drawImage(
+							iconImg,
+							centerX - iconSize / 2,
+							centerY - iconSize / 2,
+							iconSize,
+							iconSize
+						);
+						resolve();
+					};
+					iconImg.onerror = reject;
+				});
+			}
+		} else {
+			// Draw a white dot
+			const dotRadius = 4 * scale;
+			ctx.fillStyle = '#ffffff';
+			ctx.beginPath();
+			ctx.arc(centerX, centerY, dotRadius, 0, 2 * Math.PI);
+			ctx.fill();
+		}
+
+		// Convert canvas to image
+		return new Promise((resolve, reject) => {
+			canvas.toBlob((blob) => {
+				if (!blob) {
+					reject(new Error('Failed to create image blob'));
+					return;
+				}
+				
+				const img = new Image();
+				img.onload = () => resolve(img);
+				img.onerror = reject;
+				img.src = URL.createObjectURL(blob);
+			});
+		});
 	}
 
 	private createGeoJSONFeatures(markers: MarkerFeature[]): GeoJSON.Feature[] {
 		return markers.map((markerData, index) => {
 			const [lat, lng] = markerData.coordinates;
 			const icon = this.getCustomIcon(markerData.entry);
-			const color = this.getCustomColor(markerData.entry);
+			const color = this.getCustomColor(markerData.entry) || '#8b5cf6';
+			const compositeKey = this.getCompositeImageKey(icon, color);
 
 			const properties: MarkerFeatureProperties = {
 				entryIndex: index,
+				icon: compositeKey, // Use composite image key
 			};
-
-			if (icon) {
-				properties.icon = icon;
-			}
-			if (color) {
-				properties.color = color;
-			}
 
 			return {
 				type: 'Feature',
@@ -837,47 +915,17 @@ export class MapView extends BasesView {
 	private addMarkerLayers(): void {
 		if (!this.map) return;
 
-		// Add a circle layer for the pin background
+		// Add a single symbol layer for composite marker images
 		this.map.addLayer({
 			id: 'marker-pins',
-			type: 'circle',
-			source: 'markers',
-			paint: {
-				'circle-radius': 12,
-				'circle-color': [
-					'case',
-					['has', 'color'],
-					['get', 'color'],
-					'#8b5cf6' // default purple color
-				],
-				'circle-stroke-width': 1,
-				'circle-stroke-color': '#000000',
-			},
-		});
-
-		// Add a symbol layer for custom icons
-		this.map.addLayer({
-			id: 'marker-icons',
 			type: 'symbol',
 			source: 'markers',
-			filter: ['has', 'icon'],
 			layout: {
 				'icon-image': ['get', 'icon'],
-				'icon-size': 0.6,
-				'icon-allow-overlap': true,
-				'icon-ignore-placement': true,
-			},
-		});
-
-		// Add a small circle for markers without custom icons (the dot)
-		this.map.addLayer({
-			id: 'marker-dots',
-			type: 'circle',
-			source: 'markers',
-			filter: ['!', ['has', 'icon']],
-			paint: {
-				'circle-radius': 4,
-				'circle-color': '#ffffff',
+				'icon-size': 0.25, // Compensate for 4x canvas scale (4x * 0.25 = 1x original size)
+				'icon-allow-overlap': true, // Allow markers to overlap
+				'icon-ignore-placement': true, // Don't hide markers due to collision
+				'icon-padding': 0, // Reduce padding around icons for less aggressive collision
 			},
 		});
 	}
