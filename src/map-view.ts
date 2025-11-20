@@ -238,12 +238,34 @@ export class MapView extends BasesView {
 		// Get the map style (may involve fetching remote style JSON)
 		const mapStyle = await this.getMapStyle();
 
+		// Determine initial position: prefer ephemeral state if available, otherwise use config
+		let initialCenter: [number, number] = [this.center[1], this.center[0]]; // MapLibre uses [lng, lat]
+		let initialZoom = this.defaultZoom;
+		
+		// Capture if we are starting with a pending state restoration
+		const isRestoringState = this.pendingMapState !== null;
+
+		if (this.pendingMapState) {
+			if (this.pendingMapState.center) {
+				const c = this.pendingMapState.center;
+				// Handle LngLatLike (array or object)
+				if (Array.isArray(c)) {
+					initialCenter = [c[0], c[1]];
+				} else if (typeof c === 'object' && 'lng' in c && 'lat' in c) {
+					initialCenter = [c.lng, c.lat];
+				}
+			}
+			if (this.pendingMapState.zoom !== undefined && this.pendingMapState.zoom !== null) {
+				initialZoom = this.pendingMapState.zoom;
+			}
+		}
+
 		// Initialize MapLibre GL JS map with configured tiles or default style
 		this.map = new Map({
 			container: this.mapEl,
 			style: mapStyle,
-			center: [this.center[1], this.center[0]], // MapLibre uses [lng, lat]
-			zoom: this.defaultZoom,
+			center: initialCenter,
+			zoom: initialZoom,
 			minZoom: this.minZoom,
 			maxZoom: this.maxZoom,
 		});
@@ -272,6 +294,9 @@ export class MapView extends BasesView {
 		// Ensure the center and zoom are set after map loads (in case the style loading overrides it)
 		this.map.on('load', () => {
 			if (!this.map) return;
+
+			// If we were restoring state, do not reset to defaults
+			if (isRestoringState || this.pendingMapState) return;
 
 			const hasConfiguredCenter = this.center[0] !== 0 || this.center[1] !== 0;
 			const hasConfiguredZoom = this.config.get('defaultZoom') && Number.isNumber(this.config.get('defaultZoom'));
@@ -340,7 +365,8 @@ export class MapView extends BasesView {
 			}
 			// Update center when the evaluated center coordinates change
 			// (e.g., due to formula re-evaluation when active file changes)
-			else if (this.map && !this.isFirstLoad && centerChanged) {
+			// But skip if we're restoring ephemeral state
+			else if (this.map && !this.isFirstLoad && centerChanged && this.pendingMapState === null) {
 				this.updateCenter();
 			}
 			
@@ -525,13 +551,19 @@ export class MapView extends BasesView {
 			this.map.setZoom(this.maxZoom);
 		}
 
+		// Skip updating zoom/center if we have pending ephemeral state to restore
+		// (e.g., when navigating back in history to restore the user's last pan/zoom)
+		const hasEphemeralState = this.pendingMapState !== null;
+
 		// Only update zoom on first load or when zoom config explicitly changed
-		if (this.isFirstLoad || zoomConfigChanged) {
+		// But skip if we're restoring ephemeral state
+		if (!hasEphemeralState && (this.isFirstLoad || zoomConfigChanged)) {
 			this.updateZoom();
 		}
 
 		// Update center on first load or when center config changed
-		if (this.isFirstLoad || centerConfigChanged) {
+		// But skip if we're restoring ephemeral state
+		if (!hasEphemeralState && (this.isFirstLoad || centerConfigChanged)) {
 			this.updateCenter();
 		}
 
