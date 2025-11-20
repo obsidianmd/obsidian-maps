@@ -28,6 +28,8 @@
 		"typescript": "5.9.3"
 	},
 	"dependencies": {
+		"@mapbox/mapbox-gl-draw": "^1.5.1",
+		"@types/mapbox__mapbox-gl-draw": "^1.4.9",
 		"maplibre-gl": "5.8.0"
 	}
 }
