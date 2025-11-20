@@ -1069,9 +1069,9 @@ export class MapView extends BasesView {
 					'interpolate',
 					['linear'],
 					['zoom'],
-					0, 0.18,   // Very small at zoom 0
-					8, 0.20,   // Small at zoom 8
-					12, 0.22,  // Normal size at zoom 12+
+					0, 0.12,   // Very small
+					4, 0.18,
+					14, 0.22,  // Normal size
 					18, 0.24
 				],
 				'icon-allow-overlap': true,
