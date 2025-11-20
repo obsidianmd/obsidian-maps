@@ -1153,6 +1153,11 @@ export class MapView extends BasesView {
 	private showPopup(entry: BasesEntry, coordinates: [number, number]): void {
 		if (!this.map) return;
 
+		// Only show popup if there are properties to display
+		if (!this.data.properties || this.data.properties.length === 0 || !this.hasAnyPropertyValues(entry)) {
+			return;
+		}
+
 		this.clearPopupHideTimeout();
 
 		// Create shared popup if it doesn't exist
