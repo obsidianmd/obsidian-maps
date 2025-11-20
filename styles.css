@@ -40,9 +40,11 @@ body {
 
 .bases-map {
 	width: 100%;
+	background-color: var(--background-primary);
 	height: var(--bases-map-embed-height);
 	overflow: hidden;
 	position: relative;
+	-webkit-tap-highlight-color: rgb(0, 0, 0, 0);
 
 	canvas {
 		mix-blend-mode: var(--bases-map-blend-mode);
@@ -102,17 +104,6 @@ body {
 	color: var(--text-normal);
 	word-break: break-word;
 	padding: 0 var(--size-4-2);
-}
-
-
-.maplibregl-map {
-	background-color: var(--background-primary);
-	width: 100% !important;
-	height: 100% !important;
-	border-radius: var(--radius-s);
-	overflow: hidden;
-	position: relative;
-	-webkit-tap-highlight-color: rgb(0, 0, 0, 0);
 }
 
 .maplibregl-ctrl-attrib {
