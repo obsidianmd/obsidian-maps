@@ -10,12 +10,6 @@ body {
 	margin: 1em 0;
 }
 
-.mobile-option-setting-item.is-dragging {
-	opacity: 0.5;
-	z-index: 1000;
-	position: relative;
-}
-
 .mobile-option-setting-item-description {
 	font-size: var(--font-smaller);
 	color: var(--text-muted);
@@ -23,11 +17,6 @@ body {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	margin-top: 0.25em;
-}
-
-body.is-dragging-tileset {
-	cursor: grabbing;
-	user-select: none;
 }
 
 .bases-view[data-view-type="map"] {

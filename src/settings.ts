@@ -36,11 +36,11 @@ class TileSetModal extends Modal {
 	onOpen() {
 		const { contentEl, modalEl } = this;
 		
-		this.setTitle(this.isNew ? 'Add background set' : 'Edit background set');
+		this.setTitle(this.isNew ? 'Add background' : 'Edit background');
 
-		// Name
 		new Setting(contentEl)
 			.setName('Name')
+			.setDesc('A name for this background.')
 			.addText(text => text
 				.setPlaceholder('e.g. Terrain, Satellite')
 				.setValue(this.tileSet.name)
@@ -49,8 +49,7 @@ class TileSetModal extends Modal {
 				})
 			);
 
-		// Light mode
-		new Setting(contentEl)
+		const lightModeSetting = new Setting(contentEl)
 			.setName('Light mode')
 			.addText(text => text
 				.setPlaceholder('https://tiles.openfreemap.org/styles/bright')
@@ -59,10 +58,12 @@ class TileSetModal extends Modal {
 					this.tileSet.lightTiles = value;
 				})
 			);
+		
+		lightModeSetting.descEl.innerHTML = 'Tile URL or style URL for light mode. See the <a href="https://help.obsidian.md/bases/views/map">Map view documentation</a> for examples.';
 
-		// Dark mode
 		new Setting(contentEl)
 			.setName('Dark mode (optional)')
+			.setDesc('Tile URL or style URL for dark mode. If not specified, light mode tiles will be used.')
 			.addText(text => text
 				.setPlaceholder('https://tiles.openfreemap.org/styles/dark')
 				.setValue(this.tileSet.darkTiles)
@@ -71,7 +72,6 @@ class TileSetModal extends Modal {
 				})
 			);
 
-		// Button container
 		const buttonContainerEl = modalEl.createDiv('modal-button-container');
 		
 		buttonContainerEl.createEl('button', { cls: 'mod-cta', text: 'Save' })
@@ -104,17 +104,11 @@ export class MapSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'Backgrounds' });
-
-		containerEl.createEl('p', { 
-			text: 'Configure background tile sets for all maps. The first tile set is used as the default.',
-			cls: 'setting-item-description'
-		});
-
-		// Add background set button
 		new Setting(containerEl)
+			.setHeading()
+			.setName('Backgrounds')
 			.addButton(button => button
-				.setButtonText('+ Add background set')
+				.setButtonText('Add background')
 				.setCta()
 				.onClick(() => {
 					new TileSetModal(this.app, null, async (tileSet) => {
@@ -135,13 +129,9 @@ export class MapSettingTab extends PluginSettingTab {
 		if (this.plugin.settings.tileSets.length === 0) {
 			listContainer.createDiv({
 				cls: 'mobile-option-setting-item',
-				text: 'No background sets configured. The default OpenFreeMap tiles will be used.'
+				text: 'Add background sets available to all maps.'
 			});
 		}
-
-		// Add link to documentation
-		const helpEl = containerEl.createDiv({ cls: 'setting-item-description' });
-		helpEl.createEl('p').innerHTML = 'For more information and examples, see the <a href="https://help.obsidian.md/bases/views/map">Map view documentation</a>.';
 	}
 
 	private displayTileSetItem(containerEl: HTMLElement, tileSet: TileSet, index: number): void {
@@ -178,68 +168,6 @@ export class MapSettingTab extends PluginSettingTab {
 				await this.plugin.saveSettings();
 				this.display();
 			});
-		});
-
-		// Drag handle
-		itemEl.createDiv('clickable-icon mobile-option-setting-drag-icon', el => {
-			setIcon(el, 'grip-vertical');
-			setTooltip(el, 'Drag to rearrange');
-			this.attachReorderHandler(el, itemEl, containerEl, index);
-		});
-	}
-
-	private attachReorderHandler(handleEl: HTMLElement, itemEl: HTMLElement, containerEl: HTMLElement, currentIndex: number): void {
-		let dragStartY = 0;
-		let dragCurrentY = 0;
-		let isDragging = false;
-
-		handleEl.addEventListener('mousedown', (e: MouseEvent) => {
-			e.preventDefault();
-			isDragging = true;
-			dragStartY = e.clientY;
-			itemEl.addClass('is-dragging');
-			document.body.addClass('is-dragging-tileset');
-
-			const onMouseMove = (e: MouseEvent) => {
-				if (!isDragging) return;
-				dragCurrentY = e.clientY - dragStartY;
-				itemEl.style.transform = `translateY(${dragCurrentY}px)`;
-
-				// Check if we should swap with another item
-				const items = Array.from(containerEl.children) as HTMLElement[];
-				const currentRect = itemEl.getBoundingClientRect();
-				const currentCenterY = currentRect.top + currentRect.height / 2;
-
-				for (let i = 0; i < items.length; i++) {
-					if (items[i] === itemEl) continue;
-					const rect = items[i].getBoundingClientRect();
-
-					if (currentCenterY > rect.top && currentCenterY < rect.bottom) {
-						const newIndex = i;
-						if (newIndex !== currentIndex) {
-							// Reorder in settings
-							const tileSets = this.plugin.settings.tileSets;
-							const [removed] = tileSets.splice(currentIndex, 1);
-							tileSets.splice(newIndex, 0, removed);
-							void this.plugin.saveSettings();
-							this.display();
-							return;
-						}
-					}
-				}
-			};
-
-			const onMouseUp = () => {
-				isDragging = false;
-				itemEl.removeClass('is-dragging');
-				itemEl.style.transform = '';
-				document.body.removeClass('is-dragging-tileset');
-				document.removeEventListener('mousemove', onMouseMove);
-				document.removeEventListener('mouseup', onMouseUp);
-			};
-
-			document.addEventListener('mousemove', onMouseMove);
-			document.addEventListener('mouseup', onMouseUp);
 		});
 	}
 }
