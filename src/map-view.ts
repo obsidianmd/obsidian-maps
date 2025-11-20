@@ -16,6 +16,7 @@ import {
 } from 'obsidian';
 import { LngLatBounds, LngLatLike, Map, Popup, StyleSpecification, MapLayerMouseEvent, GeoJSONSource } from 'maplibre-gl';
 import { transformMapboxStyle } from './mapbox-transform';
+import type ObsidianMapsPlugin from './main';
 
 export const MapViewType = 'map';
 
@@ -76,6 +77,7 @@ export class MapView extends BasesView {
 	scrollEl: HTMLElement;
 	containerEl: HTMLElement;
 	mapEl: HTMLElement;
+	plugin: ObsidianMapsPlugin;
 
 	// Internal rendering data
 	private map: Map | null = null;
@@ -101,9 +103,10 @@ export class MapView extends BasesView {
 	private popupHideTimeout: number | null = null;
 	private popupHideTimeoutWin: Window | null = null;
 
-	constructor(controller: QueryController, scrollEl: HTMLElement) {
+	constructor(controller: QueryController, scrollEl: HTMLElement, plugin: ObsidianMapsPlugin) {
 		super(controller);
 		this.scrollEl = scrollEl;
+		this.plugin = plugin;
 		this.containerEl = scrollEl.createDiv({ cls: 'bases-map-container is-loading', attr: { tabIndex: 0 } });
 		this.mapEl = this.containerEl.createDiv('bases-map');
 	}
@@ -298,8 +301,26 @@ export class MapView extends BasesView {
 			: DEFAULT_MAP_HEIGHT;
 
 		// Load map tiles configurations
-		this.mapTiles = this.getArrayConfig('mapTiles');
-		this.mapTilesDark = this.getArrayConfig('mapTilesDark');
+		// Use view-specific tiles if configured, otherwise fall back to plugin defaults
+		const viewSpecificTiles = this.getArrayConfig('mapTiles');
+		const viewSpecificTilesDark = this.getArrayConfig('mapTilesDark');
+		
+		if (viewSpecificTiles.length > 0) {
+			// View has specific tiles configured
+			this.mapTiles = viewSpecificTiles;
+			this.mapTilesDark = viewSpecificTilesDark;
+		} else if (this.plugin.settings.tileSets.length > 0) {
+			// Use first tile set from plugin settings
+			const firstTileSet = this.plugin.settings.tileSets[0];
+			this.mapTiles = firstTileSet.lightTiles ? [firstTileSet.lightTiles] : [];
+			this.mapTilesDark = firstTileSet.darkTiles 
+				? [firstTileSet.darkTiles]
+				: (firstTileSet.lightTiles ? [firstTileSet.lightTiles] : []);
+		} else {
+			// No tiles configured, will fall back to default style
+			this.mapTiles = [];
+			this.mapTilesDark = [];
+		}
 	}
 
 	private getNumericConfig(key: string, defaultValue: number, min?: number, max?: number): number {
