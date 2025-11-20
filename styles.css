@@ -114,6 +114,11 @@ body {
 
 	a {
 		color: var(--text-muted);
+        text-decoration: none;
+	}
+	a:hover {
+		color: var(--text-muted);
+		text-decoration: underline;
 	}
 }
 
@@ -243,7 +248,7 @@ a.maplibregl-ctrl-logo.maplibregl-compact {
 
 .maplibregl-ctrl.maplibregl-ctrl-attrib {
 	padding: 0 5px;
-	background-color: rgb(255, 255, 255, 0.5);
+	background-color: var(--background-primary);
 	margin: 0;
 }
 
@@ -253,8 +258,10 @@ a.maplibregl-ctrl-logo.maplibregl-compact {
 		padding: 2px 24px 2px 0;
 		margin: 10px;
 		position: relative;
-		background-color: var(--background-primary);
-		color: #000;
+		display: flex;
+		align-items: center;
+		background-color: rgba(var(--mono-rgb-0), 0.2);
+		color: var(--text-faint);
 		border-radius: 12px;
 		box-sizing: content-box;
 	}
@@ -344,16 +351,6 @@ a.maplibregl-ctrl-logo.maplibregl-compact {
 	.maplibregl-ctrl-attrib.maplibregl-compact::after {
 		background-image: svg-load("svg/maplibregl-ctrl-attrib.svg");
 	}
-}
-
-.maplibregl-ctrl-attrib a {
-	color: rgb(0, 0, 0, 0.75);
-	text-decoration: none;
-}
-
-.maplibregl-ctrl-attrib a:hover {
-	color: inherit;
-	text-decoration: underline;
 }
 
 .maplibregl-attrib-empty {
