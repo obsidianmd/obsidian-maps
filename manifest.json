@@ -1,7 +1,7 @@
 {
 	"id": "maps",
 	"name": "Maps",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"minAppVersion": "1.10.0",
 	"description": "Adds a map layout to bases so you can display notes as an interactive map view.",
 	"author": "Obsidian",
