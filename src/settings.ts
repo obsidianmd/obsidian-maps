@@ -136,17 +136,9 @@ export class MapSettingTab extends PluginSettingTab {
 
 	private displayTileSetItem(containerEl: HTMLElement, tileSet: TileSet, index: number): void {
 		const itemEl = containerEl.createDiv('mobile-option-setting-item');
-		
-		// Name and description
-		itemEl.createSpan({ cls: 'mobile-option-setting-item-name', text: tileSet.name || 'Untitled' });
-		
-		if (tileSet.lightTiles) {
-			itemEl.createDiv('mobile-option-setting-item-description', el => {
-				el.setText(tileSet.lightTiles);
-			});
-		}
 
-		// Edit button
+		itemEl.createSpan({ cls: 'mobile-option-setting-item-name', text: tileSet.name || 'Untitled' });
+
 		itemEl.createDiv('clickable-icon', el => {
 			setIcon(el, 'pencil');
 			setTooltip(el, 'Edit');
@@ -159,7 +151,6 @@ export class MapSettingTab extends PluginSettingTab {
 			});
 		});
 
-		// Delete button
 		itemEl.createDiv('clickable-icon', el => {
 			setIcon(el, 'trash-2');
 			setTooltip(el, 'Delete');
