@@ -771,7 +771,7 @@ export class MapView extends BasesView {
 		
 		for (const markerData of markers) {
 			const icon = this.getCustomIcon(markerData.entry);
-			const color = this.getCustomColor(markerData.entry) || '#8b5cf6';
+			const color = this.getCustomColor(markerData.entry) || 'var(--bases-map-marker-background)';
 			const compositeKey = this.getCompositeImageKey(icon, color);
 			
 			if (!this.loadedIcons.has(compositeKey)) {
@@ -918,7 +918,7 @@ export class MapView extends BasesView {
 		return markers.map((markerData, index) => {
 			const [lat, lng] = markerData.coordinates;
 			const icon = this.getCustomIcon(markerData.entry);
-			const color = this.getCustomColor(markerData.entry) || '#8b5cf6';
+			const color = this.getCustomColor(markerData.entry) || 'var(--bases-map-marker-background)';
 			const compositeKey = this.getCompositeImageKey(icon, color);
 
 			const properties: MarkerFeatureProperties = {
@@ -948,9 +948,9 @@ export class MapView extends BasesView {
 			layout: {
 				'icon-image': ['get', 'icon'],
 				'icon-size': 0.25, // Compensate for 4x canvas scale (4x * 0.25 = 1x original size)
-				'icon-allow-overlap': true, // Allow markers to overlap
-				'icon-ignore-placement': true, // Don't hide markers due to collision
-				'icon-padding': 0, // Reduce padding around icons for less aggressive collision
+				'icon-allow-overlap': true,
+				'icon-ignore-placement': true, 
+				'icon-padding': 0,
 			},
 		});
 	}
