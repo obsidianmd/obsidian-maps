@@ -802,7 +802,31 @@ export class MapView extends BasesView {
 		return `marker-${icon || 'dot'}-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
 	}
 
+	private resolveColor(color: string): string {
+		// If the color doesn't contain var(), return it as-is
+		if (!color.includes('var(')) {
+			return color;
+		}
+
+		// Create a temporary element to resolve CSS variables
+		const tempEl = document.createElement('div');
+		tempEl.style.color = color;
+		tempEl.style.display = 'none';
+		document.body.appendChild(tempEl);
+
+		// Get the computed color value
+		const computedColor = getComputedStyle(tempEl).color;
+		
+		// Clean up
+		tempEl.remove();
+
+		return computedColor;
+	}
+
 	private async createCompositeMarkerImage(icon: string | null, color: string): Promise<HTMLImageElement> {
+		// Resolve CSS variables to actual color values
+		const resolvedColor = this.resolveColor(color);
+
 		// Create a high-resolution canvas for crisp rendering on retina displays
 		const scale = 4; // 4x resolution for crisp display
 		const size = 48 * scale; // High-res canvas
@@ -824,7 +848,7 @@ export class MapView extends BasesView {
 		const centerY = size / 2;
 		const radius = 12 * scale;
 		
-		ctx.fillStyle = color;
+		ctx.fillStyle = resolvedColor;
 		ctx.strokeStyle = '#000000';
 		ctx.lineWidth = 1 * scale;
 		ctx.beginPath();
