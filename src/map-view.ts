@@ -948,9 +948,17 @@ export class MapView extends BasesView {
 			source: 'markers',
 			layout: {
 				'icon-image': ['get', 'icon'],
-				'icon-size': 0.25, // Compensate for 4x canvas scale (4x * 0.25 = 1x original size)
+				'icon-size': [
+					'interpolate',
+					['linear'],
+					['zoom'],
+					0, 0.18,   // Very small at zoom 0
+					8, 0.20,   // Small at zoom 8
+					12, 0.22,  // Normal size at zoom 12+
+					18, 0.24
+				],
 				'icon-allow-overlap': true,
-				'icon-ignore-placement': true, 
+				'icon-ignore-placement': true,
 				'icon-padding': 0,
 			},
 		});
