@@ -795,6 +795,10 @@ export class MapView extends BasesView {
 				const img = await this.createCompositeMarkerImage(icon, color);
 				
 				if (this.map) {
+					// Force update of the image on theme change
+					if (this.map.hasImage(compositeKey)) {
+						this.map.removeImage(compositeKey);
+					}
 					this.map.addImage(compositeKey, img);
 					this.loadedIcons.add(compositeKey);
 				}
