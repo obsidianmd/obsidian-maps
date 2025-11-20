@@ -237,13 +237,10 @@ export class MapView extends BasesView {
 		const activeFileChanged = this.lastActiveFilePath !== currentActiveFilePath;
 		
 		this.loadConfig();
-		void this.initializeMap().then(() => {
-			if (this.map && this.data) {
-				this.updateMarkers();
-			}
+		void this.initializeMap().then(async () => {
 			// Apply config to map on first load or when config changes
 			if (configChanged) {
-				void this.applyConfigToMap(this.lastConfigSnapshot, configSnapshot);
+				await this.applyConfigToMap(this.lastConfigSnapshot, configSnapshot);
 				this.lastConfigSnapshot = configSnapshot;
 				this.isFirstLoad = false;
 			}
@@ -258,6 +255,10 @@ export class MapView extends BasesView {
 				}
 			}
 			
+			if (this.map && this.data) {
+				this.updateMarkers();
+			}
+
 			// Track the active file path for next comparison
 			this.lastActiveFilePath = currentActiveFilePath;
 		});
@@ -394,7 +395,8 @@ export class MapView extends BasesView {
 		// Detect what changed
 		const centerConfigChanged = oldConfig?.center !== newConfig.center;
 		const zoomConfigChanged = oldConfig?.defaultZoom !== newConfig.defaultZoom;
-		const tilesChanged = oldConfig?.mapTiles !== newConfig.mapTiles || oldConfig?.mapTilesDark !== newConfig.mapTilesDark;
+		const tilesChanged = JSON.stringify(oldConfig?.mapTiles) !== JSON.stringify(newConfig.mapTiles) || 
+			JSON.stringify(oldConfig?.mapTilesDark) !== JSON.stringify(newConfig.mapTilesDark);
 		const heightChanged = oldConfig?.mapHeight !== newConfig.mapHeight;
 
 		// Update map constraints
