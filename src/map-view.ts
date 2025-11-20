@@ -23,12 +23,12 @@ const DEFAULT_MAP_HEIGHT = 400;
 const DEFAULT_MAP_CENTER: [number, number] = [0, 0];
 const DEFAULT_MAP_ZOOM = 4;
 
-interface MarkerFeature {
+interface MapMarker {
 	entry: BasesEntry;
 	coordinates: [number, number];
 }
 
-interface MarkerFeatureProperties {
+interface MapMarkerProperties {
 	entryIndex: number;
 	icon: string; // Composite image key combining icon and color
 }
@@ -81,7 +81,7 @@ export class MapView extends BasesView {
 
 	// Internal rendering data
 	private map: Map | null = null;
-	private markerFeatures: MarkerFeature[] = [];
+	private markers: MapMarker[] = [];
 	private bounds: LngLatBounds | null = null;
 	private loadedIcons: Set<string> = new Set();
 	private coordinatesProp: BasesPropertyId | null = null;
@@ -222,7 +222,7 @@ export class MapView extends BasesView {
 			this.map.remove();
 			this.map = null;
 		}
-		this.markerFeatures = [];
+		this.markers = [];
 		this.loadedIcons.clear();
 		this.bounds = null;
 	}
@@ -601,7 +601,7 @@ export class MapView extends BasesView {
 		}
 
 		// Collect valid marker data
-		const validMarkers: MarkerFeature[] = [];
+		const validMarkers: MapMarker[] = [];
 		for (const entry of this.data.data) {
 			if (!entry) continue;
 
@@ -622,7 +622,7 @@ export class MapView extends BasesView {
 			}
 		}
 
-		this.markerFeatures = validMarkers;
+		this.markers = validMarkers;
 
 		// Calculate bounds for all markers
 		const bounds = this.bounds = new LngLatBounds();
@@ -764,7 +764,7 @@ export class MapView extends BasesView {
 		}
 	}
 
-	private async loadCustomIcons(markers: MarkerFeature[]): Promise<void> {
+	private async loadCustomIcons(markers: MapMarker[]): Promise<void> {
 		if (!this.map) return;
 
 		// Collect all unique icon+color combinations that need to be loaded
@@ -828,6 +828,7 @@ export class MapView extends BasesView {
 	private async createCompositeMarkerImage(icon: string | null, color: string): Promise<HTMLImageElement> {
 		// Resolve CSS variables to actual color values
 		const resolvedColor = this.resolveColor(color);
+		const resolvedIconColor = this.resolveColor('var(--bases-map-marker-icon-color)');
 
 		// Create a high-resolution canvas for crisp rendering on retina displays
 		const scale = 4; // 4x resolution for crisp display
@@ -870,7 +871,7 @@ export class MapView extends BasesView {
 		svgEl.setAttribute('stroke', 'currentColor');
 		svgEl.setAttribute('fill', 'none');
 		svgEl.setAttribute('stroke-width', '2');
-		svgEl.style.color = '#ffffff';
+		svgEl.style.color = resolvedIconColor;
 				
 				const svgString = new XMLSerializer().serializeToString(svgEl);
 				const iconImg = new Image();
@@ -893,9 +894,9 @@ export class MapView extends BasesView {
 				});
 			}
 		} else {
-			// Draw a white dot
+			// Draw a dot
 			const dotRadius = 4 * scale;
-			ctx.fillStyle = '#ffffff';
+			ctx.fillStyle = resolvedIconColor;
 			ctx.beginPath();
 			ctx.arc(centerX, centerY, dotRadius, 0, 2 * Math.PI);
 			ctx.fill();
@@ -917,14 +918,14 @@ export class MapView extends BasesView {
 		});
 	}
 
-	private createGeoJSONFeatures(markers: MarkerFeature[]): GeoJSON.Feature[] {
+	private createGeoJSONFeatures(markers: MapMarker[]): GeoJSON.Feature[] {
 		return markers.map((markerData, index) => {
 			const [lat, lng] = markerData.coordinates;
 			const icon = this.getCustomIcon(markerData.entry);
 			const color = this.getCustomColor(markerData.entry) || 'var(--bases-map-marker-background)';
 			const compositeKey = this.getCompositeImageKey(icon, color);
 
-			const properties: MarkerFeatureProperties = {
+			const properties: MapMarkerProperties = {
 				entryIndex: index,
 				icon: compositeKey, // Use composite image key
 			};
@@ -983,12 +984,13 @@ export class MapView extends BasesView {
 			if (!e.features || e.features.length === 0) return;
 			const feature = e.features[0];
 			const entryIndex = feature.properties?.entryIndex;
-			if (entryIndex !== undefined && this.markerFeatures[entryIndex]) {
-				const markerData = this.markerFeatures[entryIndex];
+			if (entryIndex !== undefined && this.markers[entryIndex]) {
+				const markerData = this.markers[entryIndex];
 				this.showPopup(markerData.entry, markerData.coordinates);
 			}
 		});
 
+		// Handle mouseleave to hide popup
 		this.map.on('mouseleave', 'marker-pins', () => {
 			this.hidePopup();
 		});
@@ -998,8 +1000,8 @@ export class MapView extends BasesView {
 			if (!e.features || e.features.length === 0) return;
 			const feature = e.features[0];
 			const entryIndex = feature.properties?.entryIndex;
-			if (entryIndex !== undefined && this.markerFeatures[entryIndex]) {
-				const markerData = this.markerFeatures[entryIndex];
+			if (entryIndex !== undefined && this.markers[entryIndex]) {
+				const markerData = this.markers[entryIndex];
 				void this.app.workspace.openLinkText(
 					markerData.entry.file.path,
 					'',
@@ -1015,8 +1017,8 @@ export class MapView extends BasesView {
 			
 			const feature = e.features[0];
 			const entryIndex = feature.properties?.entryIndex;
-			if (entryIndex !== undefined && this.markerFeatures[entryIndex]) {
-				const markerData = this.markerFeatures[entryIndex];
+			if (entryIndex !== undefined && this.markers[entryIndex]) {
+				const markerData = this.markers[entryIndex];
 				const [lat, lng] = markerData.coordinates;
 				const file = markerData.entry.file;
 				
@@ -1042,13 +1044,13 @@ export class MapView extends BasesView {
 			}
 		});
 
-		// Handle hover for link preview
+		// Handle hover for link preview - similar to cards view
 		this.map.on('mouseover', 'marker-pins', (e: MapLayerMouseEvent) => {
 			if (!e.features || e.features.length === 0) return;
 			const feature = e.features[0];
 			const entryIndex = feature.properties?.entryIndex;
-			if (entryIndex !== undefined && this.markerFeatures[entryIndex]) {
-				const markerData = this.markerFeatures[entryIndex];
+			if (entryIndex !== undefined && this.markers[entryIndex]) {
+				const markerData = this.markers[entryIndex];
 				this.app.workspace.trigger('hover-link', {
 					event: e.originalEvent,
 					source: 'bases',
