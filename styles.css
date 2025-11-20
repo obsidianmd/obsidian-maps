@@ -176,6 +176,9 @@ body {
 	position: absolute;
 	pointer-events: none;
 	z-index: 2;
+	display: flex;
+	gap: var(--size-4-1);
+	flex-direction: column;
 }
 
 .maplibregl-ctrl-top-left {
