@@ -863,10 +863,11 @@ export class MapView extends BasesView {
 			setIcon(iconDiv, icon);
 			const svgEl = iconDiv.querySelector('svg');
 			
-			if (svgEl) {
-				// Set SVG fill to white for better contrast
-				svgEl.setAttribute('fill', 'currentColor');
-				svgEl.style.color = '#ffffff';
+	if (svgEl) {
+		svgEl.setAttribute('stroke', 'currentColor');
+		svgEl.setAttribute('fill', 'none');
+		svgEl.setAttribute('stroke-width', '2');
+		svgEl.style.color = '#ffffff';
 				
 				const svgString = new XMLSerializer().serializeToString(svgEl);
 				const iconImg = new Image();
