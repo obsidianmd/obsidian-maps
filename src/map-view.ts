@@ -14,7 +14,7 @@ import {
 	Value,
 	NullValue,
 } from 'obsidian';
-import { LngLatBounds, LngLatLike, Map, Marker, Popup, StyleSpecification } from 'maplibre-gl';
+import { LngLatBounds, LngLatLike, Map, Popup, StyleSpecification, MapLayerMouseEvent, GeoJSONSource } from 'maplibre-gl';
 import { transformMapboxStyle } from './mapbox-transform';
 
 export const MapViewType = 'map';
@@ -23,10 +23,15 @@ const DEFAULT_MAP_HEIGHT = 400;
 const DEFAULT_MAP_CENTER: [number, number] = [0, 0];
 const DEFAULT_MAP_ZOOM = 4;
 
-interface MapMarker {
+interface MarkerFeature {
 	entry: BasesEntry;
-	marker: Marker;
 	coordinates: [number, number];
+}
+
+interface MarkerFeatureProperties {
+	entryIndex: number;
+	icon?: string;
+	color?: string;
 }
 
 class CustomZoomControl {
@@ -77,8 +82,9 @@ export class MapView extends BasesView {
 
 	// Internal rendering data
 	private map: Map | null = null;
-	private markers: MapMarker[] = [];
+	private markerFeatures: MarkerFeature[] = [];
 	private bounds: LngLatBounds | null = null;
+	private loadedIcons: Set<string> = new Set();
 	private coordinatesProp: BasesPropertyId | null = null;
 	private markerIconProp: BasesPropertyId | null = null;
 	private markerColorProp: BasesPropertyId | null = null;
@@ -93,6 +99,7 @@ export class MapView extends BasesView {
 	private sharedPopup: Popup | null = null;
 	private isFirstLoad = true;
 	private lastConfigSnapshot: string | null = null;
+	private lastActiveFilePath: string | null = null;
 
 	private popupHideTimeout: number | null = null;
 	private popupHideTimeoutWin: Window | null = null;
@@ -216,7 +223,8 @@ export class MapView extends BasesView {
 			this.map.remove();
 			this.map = null;
 		}
-		this.markers = [];
+		this.markerFeatures = [];
+		this.loadedIcons.clear();
 		this.bounds = null;
 	}
 
@@ -225,6 +233,9 @@ export class MapView extends BasesView {
 		
 		const configSnapshot = this.getConfigSnapshot();
 		const configChanged = this.lastConfigSnapshot !== configSnapshot;
+		
+		const currentActiveFilePath = this.app.workspace.getActiveFile()?.path ?? null;
+		const activeFileChanged = this.lastActiveFilePath !== currentActiveFilePath;
 		
 		this.loadConfig();
 		void this.initializeMap().then(() => {
@@ -237,10 +248,19 @@ export class MapView extends BasesView {
 				this.lastConfigSnapshot = configSnapshot;
 				this.isFirstLoad = false;
 			}
-			// Update center when active file changes
-			else if (this.map && !this.isFirstLoad) {
-				this.updateCenter();
+			// Update center when active file changes (for formula re-evaluation)
+			// Only if the new active file is already in our data set (not a newly created file)
+			else if (this.map && !this.isFirstLoad && activeFileChanged) {
+				const activeFile = this.app.workspace.getActiveFile();
+				const isActiveFileInDataSet = activeFile && this.data?.data.some(entry => entry?.file.path === activeFile.path);
+				
+				if (isActiveFileInDataSet) {
+					this.updateCenter();
+				}
 			}
+			
+			// Track the active file path for next comparison
+			this.lastActiveFilePath = currentActiveFilePath;
 		});
 	}
 
@@ -574,18 +594,13 @@ export class MapView extends BasesView {
 		);
 	}
 
-	private updateMarkers(): void {
-		// Clear existing markers
-		for (const markerData of this.markers) {
-			markerData.marker.remove();
-		}
-
+	private async updateMarkers(): Promise<void> {
 		if (!this.map || !this.data || !this.coordinatesProp) {
 			return;
 		}
 
-		// Create markers for entries with valid coordinates
-		const validMarkers: MapMarker[] = this.markers = [];
+		// Collect valid marker data
+		const validMarkers: MarkerFeature[] = [];
 		for (const entry of this.data.data) {
 			if (!entry) continue;
 
@@ -599,16 +614,14 @@ export class MapView extends BasesView {
 			}
 
 			if (coordinates) {
-				const marker = this.createMarker(entry, coordinates);
-				if (marker) {
-					validMarkers.push({
-						entry,
-						marker,
-						coordinates,
-					});
-				}
+				validMarkers.push({
+					entry,
+					coordinates,
+				});
 			}
 		}
+
+		this.markerFeatures = validMarkers;
 
 		// Calculate bounds for all markers
 		const bounds = this.bounds = new LngLatBounds();
@@ -616,6 +629,32 @@ export class MapView extends BasesView {
 			const [lat, lng] = markerData.coordinates;
 			bounds.extend([lng, lat]);
 		});
+
+		// Load all custom icons and create GeoJSON features
+		await this.loadCustomIcons(validMarkers);
+		const features = this.createGeoJSONFeatures(validMarkers);
+
+		// Update or create the markers source
+		const source = this.map.getSource('markers') as GeoJSONSource | undefined;
+		if (source) {
+			source.setData({
+				type: 'FeatureCollection',
+				features,
+			});
+		} else {
+			// Add source if it doesn't exist
+			this.map.addSource('markers', {
+				type: 'geojson',
+				data: {
+					type: 'FeatureCollection',
+					features,
+				},
+			});
+
+			// Add layers for markers (icon + pin)
+			this.addMarkerLayers();
+			this.setupMarkerInteractions();
+		}
 
 		// Apply pending map state if available (for restoring ephemeral state)
 		if (this.pendingMapState && this.map) {
@@ -724,114 +763,217 @@ export class MapView extends BasesView {
 		}
 	}
 
-	private createMarker(entry: BasesEntry, coordinates: [number, number]): Marker | null {
-		if (!this.map) return null;
+	private async loadCustomIcons(markers: MarkerFeature[]): Promise<void> {
+		if (!this.map || !this.markerIconProp) return;
 
-		const [lat, lng] = coordinates;
-
-		// Get custom icon and color if configured
-		const customIcon = this.getCustomIcon(entry);
-		const customColor = this.getCustomColor(entry);
-
-		const markerContainerEl = createDiv('bases-map-custom-marker');
-
-		markerContainerEl.createDiv('bases-map-marker-shadow');
-		const pinEl = markerContainerEl.createDiv('bases-map-marker-pin');
-		markerContainerEl.createDiv('bases-map-marker-pin-outline');
-
-		if (customColor) {
-			pinEl.style.setProperty('--marker-color', customColor);
+		// Collect all unique icons that need to be loaded
+		const iconsToLoad: string[] = [];
+		for (const markerData of markers) {
+			const icon = this.getCustomIcon(markerData.entry);
+			if (icon && !this.loadedIcons.has(icon)) {
+				iconsToLoad.push(icon);
+			}
 		}
 
-		if (this.markerIconProp && customIcon) {
-			const iconElement = markerContainerEl.createDiv('bases-map-marker-icon');
-			setIcon(iconElement, customIcon);
+		// Load each icon as an SVG and add it to the map
+		for (const iconName of iconsToLoad) {
+			try {
+				// Create an SVG element with the icon
+				const iconDiv = createDiv();
+				setIcon(iconDiv, iconName);
+				const svgEl = iconDiv.querySelector('svg');
+				
+				if (svgEl) {
+					// Convert SVG to data URL
+					const svgString = new XMLSerializer().serializeToString(svgEl);
+					const img = new Image();
+					img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+					
+					await new Promise<void>((resolve, reject) => {
+						img.onload = () => {
+							if (this.map && !this.map.hasImage(iconName)) {
+								this.map.addImage(iconName, img);
+								this.loadedIcons.add(iconName);
+							}
+							resolve();
+						};
+						img.onerror = reject;
+					});
+				}
+			} catch (error) {
+				console.warn(`Failed to load icon ${iconName}:`, error);
+			}
 		}
-		else {
-			markerContainerEl.createDiv('bases-map-marker-dot');
-		}
+	}
 
-		const marker = new Marker({
-			element: markerContainerEl
-		})
-			.setLngLat([lng, lat])
-			.addTo(this.map);
+	private createGeoJSONFeatures(markers: MarkerFeature[]): GeoJSON.Feature[] {
+		return markers.map((markerData, index) => {
+			const [lat, lng] = markerData.coordinates;
+			const icon = this.getCustomIcon(markerData.entry);
+			const color = this.getCustomColor(markerData.entry);
 
-		marker.addClassName('bases-map-marker');
+			const properties: MarkerFeatureProperties = {
+				entryIndex: index,
+			};
 
-		const markerEl = marker.getElement();
+			if (icon) {
+				properties.icon = icon;
+			}
+			if (color) {
+				properties.color = color;
+			}
 
-		// Set aria-label to file basename if no properties are configured, otherwise remove it
-		if (!this.data.properties || this.data.properties.length === 0) {
-			markerEl.setAttribute('aria-label', entry.file.basename);
-		}
-		else {
-			markerEl.removeAttribute('aria-label');
-		}
+			return {
+				type: 'Feature',
+				geometry: {
+					type: 'Point',
+					coordinates: [lng, lat],
+				},
+				properties,
+			};
+		});
+	}
 
-		// Only create popup if there are properties configured and at least one has a value
-		if (this.data.properties && this.data.properties.length > 0 && this.hasAnyPropertyValues(entry)) {
-			// Handle hover to show popup
-			markerEl.addEventListener('mouseenter', () => {
-				this.showPopup(entry, coordinates);
-			});
+	private addMarkerLayers(): void {
+		if (!this.map) return;
 
-			// Handle mouse leave to hide popup
-			markerEl.addEventListener('mouseleave', () => {
-				this.hidePopup();
-			});
-		}
-
-		// Handle click events - similar to cards view
-		markerEl.addEventListener('click', (evt) => {
-			if (evt.defaultPrevented) return;
-
-			// Don't block external links
-			const target = evt.target as Element;
-			if (target?.closest && target.closest('a')) return;
-
-			void this.app.workspace.openLinkText(entry.file.path, '', Keymap.isModEvent(evt));
+		// Add a circle layer for the pin background
+		this.map.addLayer({
+			id: 'marker-pins',
+			type: 'circle',
+			source: 'markers',
+			paint: {
+				'circle-radius': 12,
+				'circle-color': [
+					'case',
+					['has', 'color'],
+					['get', 'color'],
+					'#8b5cf6' // default purple color
+				],
+				'circle-stroke-width': 1,
+				'circle-stroke-color': '#000000',
+			},
 		});
 
+		// Add a symbol layer for custom icons
+		this.map.addLayer({
+			id: 'marker-icons',
+			type: 'symbol',
+			source: 'markers',
+			filter: ['has', 'icon'],
+			layout: {
+				'icon-image': ['get', 'icon'],
+				'icon-size': 0.6,
+				'icon-allow-overlap': true,
+				'icon-ignore-placement': true,
+			},
+		});
 
-		markerEl.addEventListener('contextmenu', (evt) => {
-			evt.stopPropagation();
+		// Add a small circle for markers without custom icons (the dot)
+		this.map.addLayer({
+			id: 'marker-dots',
+			type: 'circle',
+			source: 'markers',
+			filter: ['!', ['has', 'icon']],
+			paint: {
+				'circle-radius': 4,
+				'circle-color': '#ffffff',
+			},
+		});
+	}
+
+	private setupMarkerInteractions(): void {
+		if (!this.map) return;
+
+		// Change cursor on hover
+		this.map.on('mouseenter', 'marker-pins', () => {
+			if (this.map) this.map.getCanvas().style.cursor = 'pointer';
+		});
+
+		this.map.on('mouseleave', 'marker-pins', () => {
+			if (this.map) this.map.getCanvas().style.cursor = '';
+		});
+
+		// Handle hover to show popup
+		this.map.on('mouseenter', 'marker-pins', (e: MapLayerMouseEvent) => {
+			if (!e.features || e.features.length === 0) return;
+			const feature = e.features[0];
+			const entryIndex = feature.properties?.entryIndex;
+			if (entryIndex !== undefined && this.markerFeatures[entryIndex]) {
+				const markerData = this.markerFeatures[entryIndex];
+				this.showPopup(markerData.entry, markerData.coordinates);
+			}
+		});
+
+		this.map.on('mouseleave', 'marker-pins', () => {
+			this.hidePopup();
+		});
+
+		// Handle click to open file
+		this.map.on('click', 'marker-pins', (e: MapLayerMouseEvent) => {
+			if (!e.features || e.features.length === 0) return;
+			const feature = e.features[0];
+			const entryIndex = feature.properties?.entryIndex;
+			if (entryIndex !== undefined && this.markerFeatures[entryIndex]) {
+				const markerData = this.markerFeatures[entryIndex];
+				void this.app.workspace.openLinkText(
+					markerData.entry.file.path,
+					'',
+					Keymap.isModEvent(e.originalEvent)
+				);
+			}
+		});
+
+		// Handle right-click context menu
+		this.map.on('contextmenu', 'marker-pins', (e: MapLayerMouseEvent) => {
+			e.preventDefault();
+			if (!e.features || e.features.length === 0) return;
 			
-			const file = entry.file;
-			const menu = Menu.forEvent(evt);
+			const feature = e.features[0];
+			const entryIndex = feature.properties?.entryIndex;
+			if (entryIndex !== undefined && this.markerFeatures[entryIndex]) {
+				const markerData = this.markerFeatures[entryIndex];
+				const [lat, lng] = markerData.coordinates;
+				const file = markerData.entry.file;
+				
+				const menu = Menu.forEvent(e.originalEvent);
+				this.app.workspace.handleLinkContextMenu(menu, file.path, '');
 
-			this.app.workspace.handleLinkContextMenu(menu, file.path, '');
+				// Add copy coordinates option
+				menu.addItem(item => item
+					.setSection('action')
+					.setTitle('Copy coordinates')
+					.setIcon('map-pin')
+					.onClick(() => {
+						const coordString = `${lat}, ${lng}`;
+						void navigator.clipboard.writeText(coordString);
+					}));
 
-			// Add copy coordinates option
-			menu.addItem(item => item
-				.setSection('action')
-				.setTitle('Copy coordinates')
-				.setIcon('map-pin')
-				.onClick(() => {
-					const coordString = `${lat}, ${lng}`;
-					void navigator.clipboard.writeText(coordString);
-				}));
-
-			menu.addItem(item => item
-				.setSection('danger')
-				.setTitle('Delete file')
-				.setIcon('trash-2')
-				.setWarning(true)
-				.onClick(() => this.app.fileManager.promptForDeletion(file)));
+				menu.addItem(item => item
+					.setSection('danger')
+					.setTitle('Delete file')
+					.setIcon('trash-2')
+					.setWarning(true)
+					.onClick(() => this.app.fileManager.promptForDeletion(file)));
+			}
 		});
 
-		// Handle hover for link preview - similar to cards view
-		markerEl.addEventListener('mouseover', (evt) => {
-			this.app.workspace.trigger('hover-link', {
-				event: evt,
-				source: 'bases',
-				hoverParent: this.app.renderContext,
-				targetEl: markerEl,
-				linktext: entry.file.path,
-			});
+		// Handle hover for link preview
+		this.map.on('mouseover', 'marker-pins', (e: MapLayerMouseEvent) => {
+			if (!e.features || e.features.length === 0) return;
+			const feature = e.features[0];
+			const entryIndex = feature.properties?.entryIndex;
+			if (entryIndex !== undefined && this.markerFeatures[entryIndex]) {
+				const markerData = this.markerFeatures[entryIndex];
+				this.app.workspace.trigger('hover-link', {
+					event: e.originalEvent,
+					source: 'bases',
+					hoverParent: this.app.renderContext,
+					targetEl: this.mapEl,
+					linktext: markerData.entry.file.path,
+				});
+			}
 		});
-
-		return marker;
 	}
 
 	private createPopupContent(entry: BasesEntry): HTMLElement {
