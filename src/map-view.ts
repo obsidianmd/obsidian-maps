@@ -98,7 +98,7 @@ export class MapView extends BasesView {
 	private sharedPopup: Popup | null = null;
 	private isFirstLoad = true;
 	private lastConfigSnapshot: string | null = null;
-	private lastActiveFilePath: string | null = null;
+	private lastEvaluatedCenter: [number, number] = DEFAULT_MAP_CENTER;
 
 	private popupHideTimeout: number | null = null;
 	private popupHideTimeoutWin: Window | null = null;
@@ -239,10 +239,12 @@ export class MapView extends BasesView {
 		const configSnapshot = this.getConfigSnapshot();
 		const configChanged = this.lastConfigSnapshot !== configSnapshot;
 		
-		const currentActiveFilePath = this.app.workspace.getActiveFile()?.path ?? null;
-		const activeFileChanged = this.lastActiveFilePath !== currentActiveFilePath;
-		
 		this.loadConfig();
+		
+		// Check if the evaluated center coordinates have changed
+		const centerChanged = this.center[0] !== this.lastEvaluatedCenter[0] || 
+			this.center[1] !== this.lastEvaluatedCenter[1];
+		
 		void this.initializeMap().then(async () => {
 			// Apply config to map on first load or when config changes
 			if (configChanged) {
@@ -250,23 +252,18 @@ export class MapView extends BasesView {
 				this.lastConfigSnapshot = configSnapshot;
 				this.isFirstLoad = false;
 			}
-			// Update center when active file changes (for formula re-evaluation)
-			// Only if the new active file is already in our data set (not a newly created file)
-			else if (this.map && !this.isFirstLoad && activeFileChanged) {
-				const activeFile = this.app.workspace.getActiveFile();
-				const isActiveFileInDataSet = activeFile && this.data?.data.some(entry => entry?.file.path === activeFile.path);
-				
-				if (isActiveFileInDataSet) {
-					this.updateCenter();
-				}
+			// Update center when the evaluated center coordinates change
+			// (e.g., due to formula re-evaluation when active file changes)
+			else if (this.map && !this.isFirstLoad && centerChanged) {
+				this.updateCenter();
 			}
 			
 			if (this.map && this.data) {
 				this.updateMarkers();
 			}
 
-			// Track the active file path for next comparison
-			this.lastActiveFilePath = currentActiveFilePath;
+			// Track state for next comparison
+			this.lastEvaluatedCenter = [this.center[0], this.center[1]];
 		});
 	}
 
