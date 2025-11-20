@@ -16,6 +16,7 @@ import {
 } from 'obsidian';
 import { LngLatBounds, LngLatLike, Map, Popup, StyleSpecification, MapLayerMouseEvent, GeoJSONSource } from 'maplibre-gl';
 import { transformMapboxStyle } from './mapbox-transform';
+import type ObsidianMapsPlugin from './main';
 
 export const MapViewType = 'map';
 
@@ -71,11 +72,65 @@ class CustomZoomControl {
 	}
 }
 
+class BackgroundSwitcherControl {
+	private containerEl: HTMLElement;
+	private tileSets: Array<{ id: string; name: string; lightTiles: string; darkTiles: string }>;
+	private onSwitch: (tileSetId: string) => void;
+	private currentTileSetId: string;
+
+	constructor(
+		tileSets: Array<{ id: string; name: string; lightTiles: string; darkTiles: string }>,
+		currentTileSetId: string,
+		onSwitch: (tileSetId: string) => void
+	) {
+		this.tileSets = tileSets;
+		this.currentTileSetId = currentTileSetId;
+		this.onSwitch = onSwitch;
+		this.containerEl = createDiv('maplibregl-ctrl maplibregl-ctrl-group canvas-control-group mod-raised');
+	}
+
+	onAdd(map: Map): HTMLElement {
+		const button = this.containerEl.createEl('div', {
+			cls: 'canvas-control-item',
+			attr: { 'aria-label': 'Switch background' }
+		});
+		setIcon(button, 'layers');
+
+		button.addEventListener('click', (evt) => {
+			evt.stopPropagation();
+			const menu = new Menu();
+
+			for (const tileSet of this.tileSets) {
+				menu.addItem((item) => {
+					item
+						.setTitle(tileSet.name)
+						.setChecked(this.currentTileSetId === tileSet.id)
+						.onClick(() => {
+							this.currentTileSetId = tileSet.id;
+							this.onSwitch(tileSet.id);
+						});
+				});
+			}
+
+			menu.showAtMouseEvent(evt);
+		});
+
+		return this.containerEl;
+	}
+
+	onRemove(): void {
+		if (this.containerEl && this.containerEl.parentNode) {
+			this.containerEl.detach();
+		}
+	}
+}
+
 export class MapView extends BasesView {
 	type = MapViewType;
 	scrollEl: HTMLElement;
 	containerEl: HTMLElement;
 	mapEl: HTMLElement;
+	plugin: ObsidianMapsPlugin;
 
 	// Internal rendering data
 	private map: Map | null = null;
@@ -92,6 +147,7 @@ export class MapView extends BasesView {
 	private minZoom = 0;  // MapLibre default
 	private mapTiles: string[] = []; // Custom tile URLs for light mode
 	private mapTilesDark: string[] = []; // Custom tile URLs for dark mode
+	private currentTileSetId: string | null = null; // Track which tile set is active
 	private pendingMapState: { center?: LngLatLike, zoom?: number } | null = null;
 	private sharedPopup: Popup | null = null;
 	private isFirstLoad = true;
@@ -101,9 +157,10 @@ export class MapView extends BasesView {
 	private popupHideTimeout: number | null = null;
 	private popupHideTimeoutWin: Window | null = null;
 
-	constructor(controller: QueryController, scrollEl: HTMLElement) {
+	constructor(controller: QueryController, scrollEl: HTMLElement, plugin: ObsidianMapsPlugin) {
 		super(controller);
 		this.scrollEl = scrollEl;
+		this.plugin = plugin;
 		this.containerEl = scrollEl.createDiv({ cls: 'bases-map-container is-loading', attr: { tabIndex: 0 } });
 		this.mapEl = this.containerEl.createDiv('bases-map');
 	}
@@ -149,6 +206,22 @@ export class MapView extends BasesView {
 		});
 	}
 
+	private async switchToTileSet(tileSetId: string): Promise<void> {
+		const tileSet = this.plugin.settings.tileSets.find(ts => ts.id === tileSetId);
+		if (!tileSet) return;
+
+		this.currentTileSetId = tileSetId;
+		
+		// Update the current tiles
+		this.mapTiles = tileSet.lightTiles ? [tileSet.lightTiles] : [];
+		this.mapTilesDark = tileSet.darkTiles 
+			? [tileSet.darkTiles]
+			: (tileSet.lightTiles ? [tileSet.lightTiles] : []);
+
+		// Update the map style
+		await this.updateMapStyle();
+	}
+
 	private async initializeMap(): Promise<void> {
 		if (this.map) return;
 
@@ -176,6 +249,21 @@ export class MapView extends BasesView {
 		});
 
 		this.map.addControl(new CustomZoomControl(), 'top-right');
+
+		// Add background switcher if multiple tile sets are available
+		if (this.plugin.settings.tileSets.length > 1) {
+			const currentId = this.currentTileSetId || this.plugin.settings.tileSets[0]?.id || '';
+			if (currentId) {
+				this.map.addControl(
+					new BackgroundSwitcherControl(
+						this.plugin.settings.tileSets,
+						currentId,
+						(tileSetId) => this.switchToTileSet(tileSetId)
+					),
+					'top-right'
+				);
+			}
+		}
 
 		this.map.on('error', (e) => {
 			console.warn('Map error:', e);
@@ -298,8 +386,33 @@ export class MapView extends BasesView {
 			: DEFAULT_MAP_HEIGHT;
 
 		// Load map tiles configurations
-		this.mapTiles = this.getArrayConfig('mapTiles');
-		this.mapTilesDark = this.getArrayConfig('mapTilesDark');
+		// Use view-specific tiles if configured, otherwise fall back to plugin defaults
+		const viewSpecificTiles = this.getArrayConfig('mapTiles');
+		const viewSpecificTilesDark = this.getArrayConfig('mapTilesDark');
+		
+		if (viewSpecificTiles.length > 0) {
+			// View has specific tiles configured
+			this.mapTiles = viewSpecificTiles;
+			this.mapTilesDark = viewSpecificTilesDark;
+			this.currentTileSetId = null;
+		} else if (this.plugin.settings.tileSets.length > 0) {
+			// Use first tile set from plugin settings (or previously selected one)
+			const tileSet = this.currentTileSetId 
+				? this.plugin.settings.tileSets.find(ts => ts.id === this.currentTileSetId)
+				: null;
+			const selectedTileSet = tileSet || this.plugin.settings.tileSets[0];
+			
+			this.currentTileSetId = selectedTileSet.id;
+			this.mapTiles = selectedTileSet.lightTiles ? [selectedTileSet.lightTiles] : [];
+			this.mapTilesDark = selectedTileSet.darkTiles 
+				? [selectedTileSet.darkTiles]
+				: (selectedTileSet.lightTiles ? [selectedTileSet.lightTiles] : []);
+		} else {
+			// No tiles configured, will fall back to default style
+			this.mapTiles = [];
+			this.mapTilesDark = [];
+			this.currentTileSetId = null;
+		}
 	}
 
 	private getNumericConfig(key: string, defaultValue: number, min?: number, max?: number): number {

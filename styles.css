@@ -5,6 +5,20 @@ body {
 	--bases-map-blend-mode: normal;
 }
 
+/* Settings styles */
+.map-tileset-list {
+	margin: 1em 0;
+}
+
+.mobile-option-setting-item-description {
+	font-size: var(--font-smaller);
+	color: var(--text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-top: 0.25em;
+}
+
 .bases-view[data-view-type="map"] {
 	--bases-embed-border-width: 0px;
 	--bases-view-padding: 0;
@@ -26,9 +40,11 @@ body {
 
 .bases-map {
 	width: 100%;
+	background-color: var(--background-primary);
 	height: var(--bases-map-embed-height);
 	overflow: hidden;
 	position: relative;
+	-webkit-tap-highlight-color: rgb(0, 0, 0, 0);
 
 	canvas {
 		mix-blend-mode: var(--bases-map-blend-mode);
@@ -90,17 +106,6 @@ body {
 	padding: 0 var(--size-4-2);
 }
 
-
-.maplibregl-map {
-	background-color: var(--background-primary);
-	width: 100% !important;
-	height: 100% !important;
-	border-radius: var(--radius-s);
-	overflow: hidden;
-	position: relative;
-	-webkit-tap-highlight-color: rgb(0, 0, 0, 0);
-}
-
 .maplibregl-ctrl-attrib {
 	background-color: rgba(var(--mono-rgb-0), 0.8);
 	color: var(--text-muted);
@@ -109,6 +114,11 @@ body {
 
 	a {
 		color: var(--text-muted);
+        text-decoration: none;
+	}
+	a:hover {
+		color: var(--text-muted);
+		text-decoration: underline;
 	}
 }
 
@@ -166,6 +176,9 @@ body {
 	position: absolute;
 	pointer-events: none;
 	z-index: 2;
+	display: flex;
+	gap: var(--size-4-1);
+	flex-direction: column;
 }
 
 .maplibregl-ctrl-top-left {
@@ -238,7 +251,7 @@ a.maplibregl-ctrl-logo.maplibregl-compact {
 
 .maplibregl-ctrl.maplibregl-ctrl-attrib {
 	padding: 0 5px;
-	background-color: rgb(255, 255, 255, 0.5);
+	background-color: var(--background-primary);
 	margin: 0;
 }
 
@@ -248,8 +261,10 @@ a.maplibregl-ctrl-logo.maplibregl-compact {
 		padding: 2px 24px 2px 0;
 		margin: 10px;
 		position: relative;
-		background-color: var(--background-primary);
-		color: #000;
+		display: flex;
+		align-items: center;
+		background-color: rgba(var(--mono-rgb-0), 0.2);
+		color: var(--text-faint);
 		border-radius: 12px;
 		box-sizing: content-box;
 	}
@@ -339,16 +354,6 @@ a.maplibregl-ctrl-logo.maplibregl-compact {
 	.maplibregl-ctrl-attrib.maplibregl-compact::after {
 		background-image: svg-load("svg/maplibregl-ctrl-attrib.svg");
 	}
-}
-
-.maplibregl-ctrl-attrib a {
-	color: rgb(0, 0, 0, 0.75);
-	text-decoration: none;
-}
-
-.maplibregl-ctrl-attrib a:hover {
-	color: inherit;
-	text-decoration: underline;
 }
 
 .maplibregl-attrib-empty {
