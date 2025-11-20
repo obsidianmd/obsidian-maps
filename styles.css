@@ -38,6 +38,10 @@ body {
 	overflow: hidden;
 }
 
+.canvas-node-content.bases-embed .bases-map {
+	height: 100% !important;
+}
+
 .bases-map {
 	width: 100%;
 	background-color: var(--background-primary);
@@ -177,7 +181,7 @@ body {
 	pointer-events: none;
 	z-index: 2;
 	display: flex;
-	gap: var(--size-4-1);
+	gap: var(--size-4-2);
 	flex-direction: column;
 }
 
