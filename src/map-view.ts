@@ -143,6 +143,12 @@ export class MapView extends BasesView {
 		if (!this.map) return;
 		const newStyle = await this.getMapStyle();
 		this.map.setStyle(newStyle);
+		this.loadedIcons.clear();
+
+		// Re-add markers after style change since setStyle removes all runtime layers
+		this.map.once('styledata', () => {
+			void this.updateMarkers();
+		});
 	}
 
 	private async initializeMap(): Promise<void> {
@@ -427,6 +433,7 @@ export class MapView extends BasesView {
 			const currentStyle = this.map.getStyle();
 			if (JSON.stringify(newStyle) !== JSON.stringify(currentStyle)) {
 				this.map.setStyle(newStyle);
+				this.loadedIcons.clear();
 			}
 		}
 
@@ -790,7 +797,7 @@ export class MapView extends BasesView {
 				const compositeKey = this.getCompositeImageKey(icon, color);
 				const img = await this.createCompositeMarkerImage(icon, color);
 				
-				if (this.map && !this.map.hasImage(compositeKey)) {
+				if (this.map) {
 					this.map.addImage(compositeKey, img);
 					this.loadedIcons.add(compositeKey);
 				}
@@ -805,11 +812,6 @@ export class MapView extends BasesView {
 	}
 
 	private resolveColor(color: string): string {
-		// If the color doesn't contain var(), return it as-is
-		if (!color.includes('var(')) {
-			return color;
-		}
-
 		// Create a temporary element to resolve CSS variables
 		const tempEl = document.createElement('div');
 		tempEl.style.color = color;
