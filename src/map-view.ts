@@ -9,7 +9,7 @@ import {
 	NullValue,
 	ViewOption,
 } from 'obsidian';
-import { LngLatLike, Map } from 'maplibre-gl';
+import { LngLatLike, Map, setRTLTextPlugin } from 'maplibre-gl';
 import type ObsidianMapsPlugin from './main';
 import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './map/constants';
 import { CustomZoomControl } from './map/controls/zoom-control';
@@ -18,6 +18,7 @@ import { StyleManager } from './map/style';
 import { PopupManager } from './map/popup';
 import { MarkerManager } from './map/markers';
 import { hasOwnProperty, coordinateFromValue } from './map/utils';
+import { rtlPluginCode } from './map/rtl-plugin-code';
 
 interface MapConfig {
 	coordinatesProp: BasesPropertyId | null;
@@ -54,6 +55,9 @@ export class MapView extends BasesView {
 	private styleManager: StyleManager;
 	private popupManager: PopupManager;
 	private markerManager: MarkerManager;
+
+	// Static flag to track RTL plugin initialization
+	private static rtlPluginInitialized = false;
 
 	constructor(controller: QueryController, scrollEl: HTMLElement, plugin: ObsidianMapsPlugin) {
 		super(controller);
@@ -135,6 +139,21 @@ export class MapView extends BasesView {
 
 	private async initializeMap(): Promise<void> {
 		if (this.map) return;
+
+		// Initialize RTL text plugin once
+		if (!MapView.rtlPluginInitialized) {
+			try {
+				// Create a blob URL from the bundled RTL plugin code
+				// The plugin needs to run in a worker context
+				const blob = new Blob([rtlPluginCode], { type: 'application/javascript' });
+				const blobURL = URL.createObjectURL(blob);
+				// Set lazy loading to false - plugin is initialized since code is already bundled
+				setRTLTextPlugin(blobURL, false);
+				MapView.rtlPluginInitialized = true;
+			} catch (error) {
+				console.warn('Failed to initialize RTL text plugin:', error);
+			}
+		}
 
 		// Load config first
 		const currentTileSetId = this.mapConfig?.currentTileSetId || null;

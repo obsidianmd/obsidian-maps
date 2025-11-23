@@ -121,7 +121,7 @@ export class MarkerManager {
 
 		try {
 			const value = entry.getValue(mapConfig.markerIconProp);
-			if (!value) return null;
+			if (!value || !value.isTruthy()) return null;
 
 			// Extract the icon name from the value
 			const iconString = value.toString().trim();
@@ -134,7 +134,8 @@ export class MarkerManager {
 			return iconString;
 		}
 		catch (error) {
-			console.error(`Error extracting icon for ${entry.file.name}:`, error);
+			// Log as warning instead of error - this is not critical
+			console.warn(`Could not extract icon for ${entry.file.name}. The marker icon property should be a simple text value (e.g., "map", "star").`, error);
 			return null;
 		}
 	}
@@ -155,7 +156,8 @@ export class MarkerManager {
 			return colorString;
 		}
 		catch (error) {
-			console.error(`Error extracting color for ${entry.file.name}:`, error);
+			// Log as warning instead of error - this is not critical
+			console.warn(`Could not extract color for ${entry.file.name}. The marker color property should be a simple text value (e.g., "#ff0000", "red", "var(--color-accent)").`);
 			return null;
 		}
 	}

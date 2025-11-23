@@ -12,6 +12,9 @@ node_modules
 # They should be uploaded to GitHub releases instead.
 main.js
 
+# Auto-generated RTL plugin code
+src/map/rtl-plugin-code.ts
+
 # Exclude sourcemaps
 *.map
 
