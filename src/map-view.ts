@@ -147,7 +147,8 @@ export class MapView extends BasesView {
 				// The plugin needs to run in a worker context
 				const blob = new Blob([rtlPluginCode], { type: 'application/javascript' });
 				const blobURL = URL.createObjectURL(blob);
-				setRTLTextPlugin(blobURL, true);
+				// Set lazy loading to false - plugin is initialized since code is already bundled
+				setRTLTextPlugin(blobURL, false);
 				MapView.rtlPluginInitialized = true;
 			} catch (error) {
 				console.warn('Failed to initialize RTL text plugin:', error);
