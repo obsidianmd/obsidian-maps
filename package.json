@@ -4,8 +4,8 @@
 	"description": "Adds map view to Obsidian Bases.",
 	"main": "main.js",
 	"scripts": {
-		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"dev": "node scripts/generate-rtl-plugin.mjs && node esbuild.config.mjs",
+		"build": "node scripts/generate-rtl-plugin.mjs && tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"keywords": [
@@ -28,6 +28,7 @@
 		"typescript": "5.9.3"
 	},
 	"dependencies": {
+		"@mapbox/mapbox-gl-rtl-text": "^0.3.0",
 		"maplibre-gl": "5.8.0"
 	}
 }
