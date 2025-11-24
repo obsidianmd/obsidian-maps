@@ -126,10 +126,10 @@ export class MapView extends BasesView {
 		if (!tileSet || !this.mapConfig) return;
 
 		this.mapConfig.currentTileSetId = tileSetId;
-		
+
 		// Update the current tiles
 		this.mapConfig.mapTiles = tileSet.lightTiles ? [tileSet.lightTiles] : [];
-		this.mapConfig.mapTilesDark = tileSet.darkTiles 
+		this.mapConfig.mapTilesDark = tileSet.darkTiles
 			? [tileSet.darkTiles]
 			: (tileSet.lightTiles ? [tileSet.lightTiles] : []);
 
@@ -175,7 +175,7 @@ export class MapView extends BasesView {
 		// Determine initial position: prefer ephemeral state if available, otherwise use config
 		let initialCenter: [number, number] = [this.mapConfig.center[1], this.mapConfig.center[0]]; // MapLibre uses [lng, lat]
 		let initialZoom = this.mapConfig.defaultZoom;
-		
+
 		// Capture if we are starting with a pending state restoration
 		const isRestoringState = this.pendingMapState !== null;
 
@@ -284,17 +284,17 @@ export class MapView extends BasesView {
 
 	public onDataUpdated(): void {
 		this.containerEl.removeClass('is-loading');
-		
+
 		const configSnapshot = this.getConfigSnapshot();
 		const configChanged = this.lastConfigSnapshot !== configSnapshot;
-		
+
 		const currentTileSetId = this.mapConfig?.currentTileSetId || null;
 		this.mapConfig = this.loadConfig(currentTileSetId);
-		
+
 		// Check if the evaluated center coordinates have changed
-		const centerChanged = this.mapConfig.center[0] !== this.lastEvaluatedCenter[0] || 
+		const centerChanged = this.mapConfig.center[0] !== this.lastEvaluatedCenter[0] ||
 			this.mapConfig.center[1] !== this.lastEvaluatedCenter[1];
-		
+
 		void this.initializeMap().then(async () => {
 			// Apply config to map on first load or when config changes
 			if (configChanged) {
@@ -308,7 +308,7 @@ export class MapView extends BasesView {
 			else if (this.map && !this.isFirstLoad && centerChanged && this.pendingMapState === null) {
 				this.updateCenter();
 			}
-			
+
 			if (this.map && this.data) {
 				await this.markerManager.updateMarkers(this.data);
 
@@ -349,9 +349,9 @@ export class MapView extends BasesView {
 			// Only recenter if the evaluated coordinates actually changed
 			const currentCenter = this.map.getCenter();
 			if (!currentCenter) return; // Map not fully initialized yet
-			
+
 			const targetCenter: [number, number] = [this.mapConfig.center[1], this.mapConfig.center[0]]; // MapLibre uses [lng, lat]
-			const centerActuallyChanged = Math.abs(currentCenter.lng - targetCenter[0]) > 0.00001 || 
+			const centerActuallyChanged = Math.abs(currentCenter.lng - targetCenter[0]) > 0.00001 ||
 				Math.abs(currentCenter.lat - targetCenter[1]) > 0.00001;
 			if (centerActuallyChanged) {
 				this.map.setCenter(targetCenter);
@@ -365,11 +365,11 @@ export class MapView extends BasesView {
 		// Parse snapshots to detect specific changes
 		const oldConfig = oldSnapshot ? JSON.parse(oldSnapshot) : null;
 		const newConfig = JSON.parse(newSnapshot);
-		
+
 		// Detect what changed
 		const centerConfigChanged = oldConfig?.center !== newConfig.center;
 		const zoomConfigChanged = oldConfig?.defaultZoom !== newConfig.defaultZoom;
-		const tilesChanged = JSON.stringify(oldConfig?.mapTiles) !== JSON.stringify(newConfig.mapTiles) || 
+		const tilesChanged = JSON.stringify(oldConfig?.mapTiles) !== JSON.stringify(newConfig.mapTiles) ||
 			JSON.stringify(oldConfig?.mapTilesDark) !== JSON.stringify(newConfig.mapTilesDark);
 		const heightChanged = oldConfig?.mapHeight !== newConfig.mapHeight;
 
@@ -460,7 +460,7 @@ export class MapView extends BasesView {
 		// Use view-specific tiles if configured, otherwise fall back to plugin defaults
 		const viewSpecificTiles = this.getArrayConfig('mapTiles');
 		const viewSpecificTilesDark = this.getArrayConfig('mapTilesDark');
-		
+
 		let mapTiles: string[];
 		let mapTilesDark: string[];
 		let selectedTileSetId: string | null;
@@ -472,14 +472,14 @@ export class MapView extends BasesView {
 			selectedTileSetId = null;
 		} else if (this.plugin.settings.tileSets.length > 0) {
 			// Use first tile set from plugin settings (or previously selected one)
-			const tileSet = currentTileSetId 
+			const tileSet = currentTileSetId
 				? this.plugin.settings.tileSets.find(ts => ts.id === currentTileSetId)
 				: null;
 			const selectedTileSet = tileSet || this.plugin.settings.tileSets[0];
-			
+
 			selectedTileSetId = selectedTileSet.id;
 			mapTiles = selectedTileSet.lightTiles ? [selectedTileSet.lightTiles] : [];
-			mapTilesDark = selectedTileSet.darkTiles 
+			mapTilesDark = selectedTileSet.darkTiles
 				? [selectedTileSet.darkTiles]
 				: (selectedTileSet.lightTiles ? [selectedTileSet.lightTiles] : []);
 		} else {
@@ -595,10 +595,10 @@ export class MapView extends BasesView {
 					// Pre-fill coordinates if a coordinates property is configured
 					if (this.mapConfig?.coordinatesProp) {
 						// Remove 'note.' prefix if present
-						const propertyKey = this.mapConfig.coordinatesProp.startsWith('note.') 
-							? this.mapConfig.coordinatesProp.slice(5) 
+						const propertyKey = this.mapConfig.coordinatesProp.startsWith('note.')
+							? this.mapConfig.coordinatesProp.slice(5)
 							: this.mapConfig.coordinatesProp;
-							frontmatter[propertyKey] = [currentLat.toString(), currentLng.toString()];
+						frontmatter[propertyKey] = [currentLat.toString(), currentLng.toString()];
 					}
 				});
 			})
