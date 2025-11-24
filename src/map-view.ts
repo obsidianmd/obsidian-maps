@@ -4,8 +4,6 @@ import {
 	debounce,
 	Menu,
 	QueryController,
-	Value,
-	StringValue,
 	NullValue,
 	ViewOption,
 } from 'obsidian';
@@ -532,33 +530,19 @@ export class MapView extends BasesView {
 	}
 
 	private getCenterFromConfig(): [number, number] {
-		let centerConfig: Value;
-		
+		let centerConfig: unknown = null;
+
 		try {
 			centerConfig = this.config.getEvaluatedFormula(this, 'center');
+			if (centerConfig === null || centerConfig === undefined || centerConfig === NullValue.value) {
+				// If a formula is not specified, then get the static value.
+				centerConfig = this.config.get('center');
+			}
 		} catch (error) {
-			// Formula evaluation failed (e.g., this.file is null when no active file)
-			// Fall back to raw config value
-			const centerConfigStr = this.config.get('center');
-			if (String.isString(centerConfigStr)) {
-				centerConfig = new StringValue(centerConfigStr);
-			}
-			else {
-				return DEFAULT_MAP_CENTER;
-			}
+			return DEFAULT_MAP_CENTER;
 		}
 
-		// Support for legacy string format.
-		if (Value.equals(centerConfig, NullValue.value)) {
-			const centerConfigStr = this.config.get('center');
-			if (String.isString(centerConfigStr)) {
-				centerConfig = new StringValue(centerConfigStr);
-			}
-			else {
-				return DEFAULT_MAP_CENTER;
-			}
-		}
-		return coordinateFromValue(centerConfig) || DEFAULT_MAP_CENTER;
+		return parseLatLng(centerConfig) || DEFAULT_MAP_CENTER;
 	}
 
 	private getConfigSnapshot(): string {
@@ -695,9 +679,10 @@ export class MapView extends BasesView {
 
 					{
 						displayName: 'Center coordinates',
-						type: 'formula',
+						type: 'text',
 						key: 'center',
 						placeholder: '[latitude, longitude]',
+						allowFormula: true,
 					},
 					{
 						displayName: 'Default zoom',
