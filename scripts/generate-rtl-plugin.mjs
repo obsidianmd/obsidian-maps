@@ -11,5 +11,4 @@ export const rtlPluginCode = ${JSON.stringify(pluginCode)};
 `;
 
 writeFileSync('src/map/rtl-plugin-code.ts', output);
-console.log('Generated RTL plugin code file');
 
