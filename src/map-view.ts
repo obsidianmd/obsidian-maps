@@ -532,32 +532,45 @@ export class MapView extends BasesView {
 	}
 
 	private getCenterFromConfig(): [number, number] {
-		let centerConfig: Value;
-		
+		let centerConfig: Value | null = null;
+
 		try {
-			centerConfig = this.config.getEvaluatedFormula(this, 'center');
-		} catch (error) {
-			// Formula evaluation failed (e.g., this.file is null when no active file)
-			// Fall back to raw config value
-			const centerConfigStr = this.config.get('center');
-			if (String.isString(centerConfigStr)) {
-				centerConfig = new StringValue(centerConfigStr);
+			// Intentially omit `this` to always return text value of the formula, if it exists.
+			const centerFormulaText = this.config.get('center.formula');
+			let centerValue = this.config.get('center', this);
+			if (!centerFormulaText && String.isString(centerValue) && 'setFormula' in this.config) {
+				// Evaluate the formula first, then perform migration from the old value to the new.
+				const evaluatedCenterValue = this.config.getEvaluatedFormula(this, 'center');
+				this.config.setFormula('center', centerValue);
+				this.config.set('center', null);
+				centerValue = evaluatedCenterValue;
+			}
+
+			if (centerValue && !('setFormula' in this.config)) {
+				// Old version of the app.
+				centerValue = this.config.getEvaluatedFormula(this, 'center');
+				if (centerValue instanceof NullValue) {
+					// Support for legacy string format.
+					const value = this.config.get('center');
+					if (String.isString(value)) {
+						centerValue = new StringValue(value);
+					}
+					else {
+						return DEFAULT_MAP_CENTER;
+					}
+				}
+			}
+
+			if (centerValue instanceof Value) {
+				centerConfig = centerValue;
 			}
 			else {
 				return DEFAULT_MAP_CENTER;
 			}
+		} catch (error) {
+			return DEFAULT_MAP_CENTER;
 		}
 
-		// Support for legacy string format.
-		if (Value.equals(centerConfig, NullValue.value)) {
-			const centerConfigStr = this.config.get('center');
-			if (String.isString(centerConfigStr)) {
-				centerConfig = new StringValue(centerConfigStr);
-			}
-			else {
-				return DEFAULT_MAP_CENTER;
-			}
-		}
 		return coordinateFromValue(centerConfig) || DEFAULT_MAP_CENTER;
 	}
 
