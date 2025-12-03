@@ -1,16 +1,17 @@
 import { App, BasesEntry, BasesPropertyId, Keymap, Menu, setIcon } from 'obsidian';
-import { Map, LngLatBounds, GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
+import { Map as MapLibreMap, LngLatBounds, GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
 import { MapMarker, MapMarkerProperties } from './types';
 import { coordinateFromValue } from './utils';
 import { PopupManager } from './popup';
+import {SVG_MARKER_REFERENCE_SIZE, SVG_MARKER_RENDER_SCALE} from "./constants";
 
 export class MarkerManager {
-	private map: Map | null = null;
+	private map: MapLibreMap | null = null;
 	private app: App;
 	private mapEl: HTMLElement;
 	private markers: MapMarker[] = [];
 	private bounds: LngLatBounds | null = null;
-	private loadedIcons: Set<string> = new Set();
+	private loadedMarkerImages: Map<string, { fixedSize: boolean; svgError?: string }> = new Map();
 	private popupManager: PopupManager;
 	private onOpenFile: (path: string, newLeaf: boolean) => void;
 	private getData: () => any;
@@ -35,7 +36,7 @@ export class MarkerManager {
 		this.getDisplayName = getDisplayName;
 	}
 
-	setMap(map: Map | null): void {
+	setMap(map: MapLibreMap | null): void {
 		this.map = map;
 	}
 
@@ -47,8 +48,8 @@ export class MarkerManager {
 		return this.bounds;
 	}
 
-	clearLoadedIcons(): void {
-		this.loadedIcons.clear();
+	clearLoadedMarkerImages(): void {
+		this.loadedMarkerImages.clear();
 	}
 
 	async updateMarkers(data: { data: BasesEntry[] }): Promise<void> {
@@ -88,8 +89,8 @@ export class MarkerManager {
 			bounds.extend([lng, lat]);
 		});
 
-		// Load all custom icons and create GeoJSON features
-		await this.loadCustomIcons(validMarkers);
+		// Load all marker images and create GeoJSON features
+		await this.loadMarkerImages(validMarkers);
 		const features = this.createGeoJSONFeatures(validMarkers);
 
 		// Update or create the markers source
@@ -162,48 +163,77 @@ export class MarkerManager {
 		}
 	}
 
-	private async loadCustomIcons(markers: MapMarker[]): Promise<void> {
+	private getCustomSvg(entry: BasesEntry): string | null {
+		const mapConfig = this.getMapConfig();
+		if (!mapConfig || !mapConfig.markerSvgProp) return null;
+
+		try {
+			const value = entry.getValue(mapConfig.markerSvgProp);
+			if (!value || !value.isTruthy()) return null;
+			return value.toString().trim() || null;
+		}
+		catch {
+			return null;
+		}
+	}
+
+	private async loadMarkerImages(markers: MapMarker[]): Promise<void> {
 		if (!this.map) return;
 
-		// Collect all unique icon+color combinations that need to be loaded
-		const compositeImagesToLoad: Array<{ icon: string | null; color: string }> = [];
-		const uniqueKeys = new Set<string>();
-		
+		// Collect all unique marker image combinations that need to be loaded
+		const markerImagesToLoad: Array<{ icon: string | null; color: string; svgString: string | null; imageKey: string }> = [];
+
 		for (const markerData of markers) {
 			const icon = this.getCustomIcon(markerData.entry);
 			const color = this.getCustomColor(markerData.entry) || 'var(--bases-map-marker-background)';
-			const compositeKey = this.getCompositeImageKey(icon, color);
-			
-			if (!this.loadedIcons.has(compositeKey)) {
-				if (!uniqueKeys.has(compositeKey)) {
-					compositeImagesToLoad.push({ icon, color });
-					uniqueKeys.add(compositeKey);
+			const svgString = this.getCustomSvg(markerData.entry);
+			const imageKey = this.getMarkerImageKey(icon, color, svgString);
+
+			if (!this.loadedMarkerImages.has(imageKey)) {
+				// Check if we already queued this key in current batch
+				if (!markerImagesToLoad.some(item => item.imageKey === imageKey)) {
+					markerImagesToLoad.push({ icon, color, svgString, imageKey });
 				}
 			}
 		}
 
-		// Create composite images for each unique icon+color combination
-		for (const { icon, color } of compositeImagesToLoad) {
+		// Create images for each unique combination
+		for (const { icon, color, svgString, imageKey } of markerImagesToLoad) {
 			try {
-				const compositeKey = this.getCompositeImageKey(icon, color);
-				const img = await this.createCompositeMarkerImage(icon, color);
-				
+				// Use custom SVG rendering when svgString is provided, otherwise use composite marker
+				const { img, fixedSize, svgError } = svgString
+					? await this.createSvgMarkerImage(svgString)
+					: { img: await this.createCompositeMarkerImage(icon, color), fixedSize: false, svgError: undefined };
+
 				if (this.map) {
 					// Force update of the image on theme change
-					if (this.map.hasImage(compositeKey)) {
-						this.map.removeImage(compositeKey);
+					if (this.map.hasImage(imageKey)) {
+						this.map.removeImage(imageKey);
 					}
-					this.map.addImage(compositeKey, img);
-					this.loadedIcons.add(compositeKey);
+					this.map.addImage(imageKey, img);
+					this.loadedMarkerImages.set(imageKey, { fixedSize, svgError });
 				}
 			} catch (error) {
-				console.warn(`Failed to create composite marker for icon ${icon}:`, error);
+				console.warn(`Failed to create marker image for icon ${icon}:`, error);
 			}
 		}
 	}
 
-	private getCompositeImageKey(icon: string | null, color: string): string {
-		return `marker-${icon || 'dot'}-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
+	private hashSvg(str: string): string {
+		let hash = 0;
+		for (let i = 0; i < str.length; i++) {
+			hash = ((hash << 5) - hash) + str.charCodeAt(i);
+			hash |= 0;
+		}
+		return Math.abs(hash).toString(36);
+	}
+
+	private getMarkerImageKey(icon: string | null, color: string, svgString: string | null): string {
+		if (svgString) {
+			return `marker-svg-${this.hashSvg(svgString)}-${svgString.length}`;
+		}
+		const colorKey = color.replace(/[^a-zA-Z0-9]/g, '');
+		return `marker-${icon || 'dot'}-${colorKey}`;
 	}
 
 	private resolveColor(color: string): string {
@@ -234,7 +264,7 @@ export class MarkerManager {
 		canvas.width = size;
 		canvas.height = size;
 		const ctx = canvas.getContext('2d');
-		
+
 		if (!ctx) {
 			throw new Error('Failed to get canvas context');
 		}
@@ -247,33 +277,33 @@ export class MarkerManager {
 		const centerX = size / 2;
 		const centerY = size / 2;
 		const radius = 12 * scale;
-		
+
 		ctx.fillStyle = resolvedColor;
 		ctx.beginPath();
 		ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
 		ctx.fill();
-		
+
 		ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
 		ctx.lineWidth = 1 * scale;
 		ctx.stroke();
-		
+
 		// Draw the icon or dot
 		if (icon) {
 			// Load and draw custom icon
 			const iconDiv = createDiv();
 			setIcon(iconDiv, icon);
 			const svgEl = iconDiv.querySelector('svg');
-			
+
 			if (svgEl) {
 				svgEl.setAttribute('stroke', 'currentColor');
 				svgEl.setAttribute('fill', 'none');
 				svgEl.setAttribute('stroke-width', '2');
 				svgEl.style.color = resolvedIconColor;
-				
+
 				const svgString = new XMLSerializer().serializeToString(svgEl);
 				const iconImg = new Image();
 				iconImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
-				
+
 				await new Promise<void>((resolve, reject) => {
 					iconImg.onload = () => {
 						// Draw icon centered and scaled
@@ -306,7 +336,7 @@ export class MarkerManager {
 					reject(new Error('Failed to create image blob'));
 					return;
 				}
-				
+
 				const img = new Image();
 				img.onload = () => resolve(img);
 				img.onerror = reject;
@@ -315,16 +345,144 @@ export class MarkerManager {
 		});
 	}
 
+	private createInvalidSvgFallbackImage() {
+		return this.createCompositeMarkerImage('help-circle', 'var(--bases-map-marker-background)');
+	}
+
+	private getSvgDimensions(svgEl: Element): { width: number; height: number; fixedSize: boolean } | null {
+		const width = this.parseNumericSvgValue(svgEl.getAttribute('width'));
+		const height = this.parseNumericSvgValue(svgEl.getAttribute('height'));
+
+		// Fixed size: both width AND height explicitly specified
+		if (width !== null && height !== null) {
+			return { width, height, fixedSize: true };
+		}
+
+		const viewBox = svgEl.getAttribute('viewBox');
+		if (viewBox) {
+			const parts = viewBox.split(/[\s,]+/).map(Number);
+			if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+				const [, , vbWidth, vbHeight] = parts;
+				// Partial dimensions + viewBox: derive missing dimension, treat as fixed
+				if (width !== null) return { width, height: width * (vbHeight / vbWidth), fixedSize: true };
+				if (height !== null) return { width: height * (vbWidth / vbHeight), height, fixedSize: true };
+				// Only viewBox: scalable like default markers
+				return { width: vbWidth, height: vbHeight, fixedSize: false };
+			}
+		}
+
+		// Partial dimensions without viewBox: can't determine aspect ratio reliably
+		// Fall back to scalable behavior with a warning
+		if (width !== null) {
+			console.warn('SVG marker has width but no viewBox. Add viewBox for correct aspect ratio.');
+			return { width, height: width, fixedSize: false };
+		}
+		if (height !== null) {
+			console.warn('SVG marker has height but no viewBox. Add viewBox for correct aspect ratio.');
+			return { width: height, height, fixedSize: false };
+		}
+
+		// No usable dimensions - signal to use fallback marker
+		console.warn('SVG marker missing viewBox and dimensions. Add viewBox for correct rendering.');
+		return null;
+	}
+
+	private parseNumericSvgValue(value: string | null): number | null {
+		if (!value) return null;
+		// Accept plain numbers or px values, reject %, em, etc.
+		const match = value.match(/^(\d+(?:\.\d+)?)(px)?$/);
+		return match ? parseFloat(match[1]) : null;
+	}
+
+	private async createSvgMarkerImage(svgString: string): Promise<{ img: HTMLImageElement; fixedSize: boolean; svgError?: string }> {
+		// Parse SVG
+		const parser = new DOMParser();
+		const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+		const svgEl = svgDoc.documentElement;
+
+		// Check for parse errors
+		const parserError = svgDoc.querySelector('parsererror');
+		if (parserError) {
+			const errorMsg = `${parserError.textContent || 'Parse error'}`;
+			console.warn(errorMsg);
+			const fallbackImg = await this.createInvalidSvgFallbackImage();
+			return { img: fallbackImg, fixedSize: false, svgError: errorMsg };
+		}
+
+		// Verify it's actually an SVG element
+		if (svgEl.tagName.toLowerCase() !== 'svg') {
+			const errorMsg = 'Expected <svg> element';
+			console.warn(errorMsg);
+			const fallbackImg = await this.createInvalidSvgFallbackImage();
+			return { img: fallbackImg, fixedSize: false, svgError: errorMsg };
+		}
+
+		// Get dimensions
+		const dimensions = this.getSvgDimensions(svgEl);
+		if (!dimensions) {
+			const errorMsg = 'Custom SVG marker needs a viewBox and/or explicit width and height for correct rendering.';
+			const fallbackImg = await this.createInvalidSvgFallbackImage();
+			return { img: fallbackImg, fixedSize: false, svgError: errorMsg };
+		}
+
+		const { width, height, fixedSize } = dimensions;
+
+		let finalWidth: number;
+		let finalHeight: number;
+
+		if (fixedSize) {
+			// Use specified dimensions
+			finalWidth = width;
+			finalHeight = height;
+		} else {
+			// Normalize to reference size (like composite markers), preserving aspect ratio
+			const maxDim = Math.max(width, height);
+			const scale = SVG_MARKER_REFERENCE_SIZE / maxDim;
+			finalWidth = width * scale;
+			finalHeight = height * scale;
+		}
+
+		// Ensure xmlns is set (required for data URL serialization)
+		if (!svgEl.getAttribute('xmlns')) {
+			svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+		}
+
+		// Create viewBox from explicit dimensions if not present
+		if (!svgEl.getAttribute('viewBox') && fixedSize) {
+			svgEl.setAttribute('viewBox', `0 0 ${width} ${height}`);
+		}
+
+		svgEl.setAttribute('width', String(finalWidth * SVG_MARKER_RENDER_SCALE));
+		svgEl.setAttribute('height', String(finalHeight * SVG_MARKER_RENDER_SCALE));
+
+		const img = new Image();
+		img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+			new XMLSerializer().serializeToString(svgEl)
+		);
+
+		return new Promise((resolve, reject) => {
+			img.onload = () => resolve({ img, fixedSize });
+			img.onerror = () => reject(new Error('Failed to load SVG'));
+		});
+	}
+
 	private createGeoJSONFeatures(markers: MapMarker[]): GeoJSON.Feature[] {
 		return markers.map((markerData, index) => {
 			const [lat, lng] = markerData.coordinates;
 			const icon = this.getCustomIcon(markerData.entry);
 			const color = this.getCustomColor(markerData.entry) || 'var(--bases-map-marker-background)';
-			const compositeKey = this.getCompositeImageKey(icon, color);
+			const svgString = this.getCustomSvg(markerData.entry);
+			const imageKey = this.getMarkerImageKey(icon, color, svgString);
+
+			const cachedImage = this.loadedMarkerImages.get(imageKey);
+			const fixedSize = cachedImage?.fixedSize ?? false;
+			const svgError = cachedImage?.svgError;
 
 			const properties: MapMarkerProperties = {
 				entryIndex: index,
-				icon: compositeKey, // Use composite image key
+				imageKey,
+				fixedSize,
+				...(svgError && { svgError }),
 			};
 
 			return {
@@ -341,21 +499,23 @@ export class MarkerManager {
 	private addMarkerLayers(): void {
 		if (!this.map) return;
 
-		// Add a single symbol layer for composite marker images
+		const svgFixedSize = 1 / SVG_MARKER_RENDER_SCALE;
+
+		// Add a single symbol layer for marker images
 		this.map.addLayer({
 			id: 'marker-pins',
 			type: 'symbol',
 			source: 'markers',
 			layout: {
-				'icon-image': ['get', 'icon'],
+				'icon-image': ['get', 'imageKey'],
 				'icon-size': [
 					'interpolate',
 					['linear'],
 					['zoom'],
-					0, 0.12,   // Very small
-					4, 0.18,
-					14, 0.22,  // Normal size
-					18, 0.24
+					0, ['case', ['get', 'fixedSize'], svgFixedSize, 0.12],
+					4, ['case', ['get', 'fixedSize'], svgFixedSize, 0.18],
+					14, ['case', ['get', 'fixedSize'], svgFixedSize, 0.22],
+					18, ['case', ['get', 'fixedSize'], svgFixedSize, 0.24]
 				],
 				'icon-allow-overlap': true,
 				'icon-ignore-placement': true,
@@ -386,6 +546,7 @@ export class MarkerManager {
 				const data = this.getData();
 				const mapConfig = this.getMapConfig();
 				if (data && data.properties && mapConfig) {
+					const svgError = feature.properties?.svgError;
 					this.popupManager.showPopup(
 						markerData.entry,
 						markerData.coordinates,
@@ -393,7 +554,9 @@ export class MarkerManager {
 						mapConfig.coordinatesProp,
 						mapConfig.markerIconProp,
 						mapConfig.markerColorProp,
-						this.getDisplayName
+						mapConfig.markerSvgProp,
+						this.getDisplayName,
+						svgError
 					);
 				}
 			}

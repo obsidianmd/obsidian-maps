@@ -25,12 +25,15 @@ export class PopupManager {
 		coordinatesProp: BasesPropertyId | null,
 		markerIconProp: BasesPropertyId | null,
 		markerColorProp: BasesPropertyId | null,
-		getDisplayName: (prop: BasesPropertyId) => string
+		markerSvgProp: BasesPropertyId | null,
+		getDisplayName: (prop: BasesPropertyId) => string,
+		svgError?: string
 	): void {
 		if (!this.map) return;
 
-		// Only show popup if there are properties to display
-		if (!properties || properties.length === 0 || !this.hasAnyPropertyValues(entry, properties, coordinatesProp, markerIconProp, markerColorProp)) {
+		// Show popup if there are properties to display OR if there's an SVG error
+		const hasProperties = properties && properties.length > 0 && this.hasAnyPropertyValues(entry, properties, coordinatesProp, markerIconProp, markerColorProp, markerSvgProp);
+		if (!hasProperties && !svgError) {
 			return;
 		}
 
@@ -60,7 +63,7 @@ export class PopupManager {
 
 		// Update popup content and position
 		const [lat, lng] = coordinates;
-		const popupContent = this.createPopupContent(entry, properties, coordinatesProp, markerIconProp, markerColorProp, getDisplayName);
+		const popupContent = this.createPopupContent(entry, properties, coordinatesProp, markerIconProp, markerColorProp, markerSvgProp, getDisplayName, svgError);
 		this.sharedPopup
 			.setDOMContent(popupContent)
 			.setLngLat([lng, lat])
@@ -104,7 +107,9 @@ export class PopupManager {
 		coordinatesProp: BasesPropertyId | null,
 		markerIconProp: BasesPropertyId | null,
 		markerColorProp: BasesPropertyId | null,
-		getDisplayName: (prop: BasesPropertyId) => string
+		markerSvgProp: BasesPropertyId | null,
+		getDisplayName: (prop: BasesPropertyId) => string,
+		svgError?: string
 	): HTMLElement {
 		const containerEl = createDiv('bases-map-popup');
 
@@ -113,7 +118,7 @@ export class PopupManager {
 		const propertiesWithValues = [];
 
 		for (const prop of propertiesSlice) {
-			if (prop === coordinatesProp || prop === markerIconProp || prop === markerColorProp) continue; // Skip coordinates, marker icon, and marker color properties
+			if (prop === coordinatesProp || prop === markerIconProp || prop === markerColorProp || prop === markerSvgProp) continue; // Skip coordinates, marker icon, marker color, and marker SVG properties
 
 			try {
 				const value = entry.getValue(prop);
@@ -139,6 +144,13 @@ export class PopupManager {
 
 			// Render the first property value inside the link
 			firstProperty.value.renderTo(titleLinkEl, this.app.renderContext);
+
+			// Show custom SVG error below title if present
+			if (svgError) {
+				const errorEl = containerEl.createDiv('bases-map-popup-error');
+				errorEl.createSpan({ cls: 'bases-map-popup-error-icon', text: '⚠' });
+				errorEl.createSpan({ cls: 'bases-map-popup-error-message', text: `Invalid marker SVG: ${svgError}` });
+			}
 
 			// Show remaining properties (excluding the first one used as title)
 			const remainingProperties = propertiesWithValues.slice(1);
@@ -179,12 +191,13 @@ export class PopupManager {
 		properties: BasesPropertyId[],
 		coordinatesProp: BasesPropertyId | null,
 		markerIconProp: BasesPropertyId | null,
-		markerColorProp: BasesPropertyId | null
+		markerColorProp: BasesPropertyId | null,
+		markerSvgProp: BasesPropertyId | null
 	): boolean {
 		const propertiesSlice = properties.slice(0, 20); // Max 20 properties
 
 		for (const prop of propertiesSlice) {
-			if (prop === coordinatesProp || prop === markerIconProp || prop === markerColorProp) continue; // Skip coordinates, marker icon, and marker color properties
+			if (prop === coordinatesProp || prop === markerIconProp || prop === markerColorProp || prop === markerSvgProp) continue; // Skip coordinates, marker icon, marker color, and marker SVG properties
 
 			try {
 				const value = entry.getValue(prop);

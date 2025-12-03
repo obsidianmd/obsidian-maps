@@ -24,6 +24,7 @@ interface MapConfig {
 	coordinatesProp: BasesPropertyId | null;
 	markerIconProp: BasesPropertyId | null;
 	markerColorProp: BasesPropertyId | null;
+	markerSvgProp: BasesPropertyId | null;
 	mapHeight: number;
 	defaultZoom: number;
 	center: [number, number];
@@ -113,7 +114,7 @@ export class MapView extends BasesView {
 		if (!this.map || !this.mapConfig) return;
 		const newStyle = await this.styleManager.getMapStyle(this.mapConfig.mapTiles, this.mapConfig.mapTilesDark);
 		this.map.setStyle(newStyle);
-		this.markerManager.clearLoadedIcons();
+		this.markerManager.clearLoadedMarkerImages();
 
 		// Re-add markers after style change since setStyle removes all runtime layers
 		this.map.once('styledata', () => {
@@ -407,7 +408,7 @@ export class MapView extends BasesView {
 			const currentStyle = this.map.getStyle();
 			if (JSON.stringify(newStyle) !== JSON.stringify(currentStyle)) {
 				this.map.setStyle(newStyle);
-				this.markerManager.clearLoadedIcons();
+				this.markerManager.clearLoadedMarkerImages();
 			}
 		}
 
@@ -442,6 +443,7 @@ export class MapView extends BasesView {
 		const coordinatesProp = this.config.getAsPropertyId('coordinates');
 		const markerIconProp = this.config.getAsPropertyId('markerIcon');
 		const markerColorProp = this.config.getAsPropertyId('markerColor');
+		const markerSvgProp = this.config.getAsPropertyId('markerSvg');
 
 		// Load numeric configurations with validation
 		const minZoom = this.getNumericConfig('minZoom', 0, 0, 24);
@@ -493,6 +495,7 @@ export class MapView extends BasesView {
 			coordinatesProp,
 			markerIconProp,
 			markerColorProp,
+			markerSvgProp,
 			mapHeight,
 			defaultZoom,
 			center,
@@ -750,6 +753,13 @@ export class MapView extends BasesView {
 						displayName: 'Marker color',
 						type: 'property',
 						key: 'markerColor',
+						filter: prop => !prop.startsWith('file.'),
+						placeholder: 'Property',
+					},
+					{
+						displayName: 'Marker SVG',
+						type: 'property',
+						key: 'markerSvg',
 						filter: prop => !prop.startsWith('file.'),
 						placeholder: 'Property',
 					},
