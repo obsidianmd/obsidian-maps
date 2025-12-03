@@ -10,4 +10,5 @@ coordinates:
   - "2.352245"
 architect: "[[Renzo Piano]]"
 url: https://www.centrepompidou.fr
+size: 4
 ---

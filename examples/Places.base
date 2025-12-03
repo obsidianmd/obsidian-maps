@@ -4,6 +4,9 @@ filters:
 formulas:
   Type icon: list(type)[0].asFile().properties.icon
   Type color: list(type)[0].asFile().properties.color
+  SVG Marker: "'<svg height=\"35\" viewBox=\"0 0 24 36\"><path fill-rule=\"evenodd\" d=\"M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12m0 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8\" fill=\"#4f46e5\"/></svg>'"
+  Dynamic SVG Marker: "'<svg width=\"32\" height=\"18\" viewBox=\"0 0 32 18\"><rect x=\"1\" y=\"1\" width=\"30\" height=\"16\" rx=\"8\" fill=\"#6366f1\" stroke=\"#4f46e5\" stroke-width=\"2\"/><text x=\"50%\" y=\"49%\" dominant-baseline=\"central\" font-size=\"12\" font-weight=\"600\" fill=\"white\" text-anchor=\"middle\" font-family=\"system-ui, sans-serif\">' + rating + '</text></svg>'"
+  Dynamic Size SVG Marker: "'<svg height=\"' + (20 + size * 8) + '\" viewBox=\"0 0 24 36\"><path fill-rule=\"evenodd\" d=\"M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12m0 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8\" fill=\"#4f46e5\"/></svg>'"
 properties:
   file.name:
     displayName: Place
@@ -62,3 +65,50 @@ views:
     coordinates: note.coordinates
     markerIcon: formula.Type icon
     markerColor: formula.Type color
+  - type: map
+    name: SVG markers
+    order:
+      - file.name
+      - architect
+      - rating
+      - formula.SVG Marker
+    coordinates: note.coordinates
+    markerIcon: note.icon
+    markerColor: note.color
+    defaultZoom: 12
+    markerSvg: formula.SVG Marker
+  - type: map
+    name: Dynamic text SVG markers
+    order:
+      - file.name
+      - architect
+      - rating
+      - formula.Dynamic SVG Marker
+    coordinates: note.coordinates
+    markerIcon: note.icon
+    markerColor: note.color
+    defaultZoom: 12
+    markerSvg: formula.Dynamic SVG Marker
+  - type: map
+    name: Dynamic size SVG markers
+    order:
+      - file.name
+      - architect
+      - rating
+      - formula.Dynamic Size SVG Marker
+    coordinates: note.coordinates
+    markerIcon: note.icon
+    markerColor: note.color
+    defaultZoom: 12
+    markerSvg: formula.Dynamic Size SVG Marker
+  - type: map
+    name: Per-entry SVG markers
+    order:
+      - file.name
+      - architect
+      - rating
+    coordinates: note.coordinates
+    markerIcon: note.icon
+    markerColor: note.color
+    defaultZoom: 12
+    markerSvg: note.entry svg marker
