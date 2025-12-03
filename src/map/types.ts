@@ -7,6 +7,8 @@ export interface MapMarker {
 
 export interface MapMarkerProperties {
 	entryIndex: number;
-	icon: string; // Composite image key combining icon and color
+	imageKey: string; // Cache key for the marker image (composite or custom SVG)
+	fixedSize: boolean; // SVGs with explicit dimensions are fixed; others scale with zoom
+	svgError?: string; // Error message if SVG parsing/rendering failed
 }
 

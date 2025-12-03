@@ -106,6 +106,27 @@ body {
 	padding: 0 var(--size-4-2);
 }
 
+.bases-map-popup-error {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--size-4-1);
+	margin: 0 var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+	padding: var(--size-4-2);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-error);
+	border-radius: var(--radius-s);
+	border: var(--background-modifier-error) solid 1px;
+}
+
+.bases-map-popup-error-icon {
+	flex-shrink: 0;
+}
+
+.bases-map-popup-error-message {
+	word-break: break-word;
+}
+
 .maplibregl-ctrl-attrib {
 	background-color: rgba(var(--mono-rgb-0), 0.8);
 	color: var(--text-muted);

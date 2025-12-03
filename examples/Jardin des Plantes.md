@@ -10,4 +10,5 @@ coordinates:
   - "2.3595996"
 icon: trees
 color: green
+size: 2
 ---

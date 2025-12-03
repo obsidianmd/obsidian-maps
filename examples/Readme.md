@@ -31,3 +31,29 @@ You can see these properties by selecting **Properties** at the top of the base 
 ## Related notes map
 
 See the [[Museums]] note for an example of a map that only displays markers for its assigned type.
+
+## Custom SVG markers
+
+For full control over marker appearance, use the **Marker SVG** property to provide custom SVG markup. This works well with formulas to create dynamic markers.
+
+![[Places.base#SVG markers]]
+
+The **SVG Marker** formula renders a custom pin shape:
+
+```js
+'<svg viewBox="0 0 366 552" height="30">...</svg>'
+```
+
+You can also create markers with dynamic content. The **Dynamic SVG marker** formula displays each place's rating inside a pill:
+
+```js
+'<svg width="32" height="18" viewBox="0 0 32 18">...' + rating + '...</svg>'
+```
+
+Or vary marker size based on data as in the **Dynamic size SVG marker** formula:
+
+```js
+'<svg viewBox="0 0 366 552" height="' + (15 + size * 8) + '">...</svg>'
+```
+
+SVGs with explicit `width` and `height` display at that fixed size. SVGs with only a `viewBox` scale with zoom like default markers.
