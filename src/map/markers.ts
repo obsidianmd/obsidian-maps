@@ -338,7 +338,10 @@ export class MarkerManager {
 				}
 
 				const img = new Image();
-				img.onload = () => resolve(img);
+				img.onload = () => {
+					resolve(img);
+					URL.revokeObjectURL(img.src);
+				};
 				img.onerror = reject;
 				img.src = URL.createObjectURL(blob);
 			});
