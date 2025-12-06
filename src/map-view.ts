@@ -24,6 +24,7 @@ interface MapConfig {
 	coordinatesProp: BasesPropertyId | null;
 	markerIconProp: BasesPropertyId | null;
 	markerColorProp: BasesPropertyId | null;
+	markerNeighboursProp: BasesPropertyId | null;
 	mapHeight: number;
 	defaultZoom: number;
 	center: [number, number];
@@ -442,6 +443,7 @@ export class MapView extends BasesView {
 		const coordinatesProp = this.config.getAsPropertyId('coordinates');
 		const markerIconProp = this.config.getAsPropertyId('markerIcon');
 		const markerColorProp = this.config.getAsPropertyId('markerColor');
+		const markerNeighboursProp = this.config.getAsPropertyId('markerNeighbours');
 
 		// Load numeric configurations with validation
 		const minZoom = this.getNumericConfig('minZoom', 0, 0, 24);
@@ -493,6 +495,7 @@ export class MapView extends BasesView {
 			coordinatesProp,
 			markerIconProp,
 			markerColorProp,
+			markerNeighboursProp,
 			mapHeight,
 			defaultZoom,
 			center,
@@ -750,6 +753,13 @@ export class MapView extends BasesView {
 						displayName: 'Marker color',
 						type: 'property',
 						key: 'markerColor',
+						filter: prop => !prop.startsWith('file.'),
+						placeholder: 'Property',
+					},
+					{
+						displayName: 'Linked markers',
+						type: 'property',
+						key: 'markerNeighbours',
 						filter: prop => !prop.startsWith('file.'),
 						placeholder: 'Property',
 					},
