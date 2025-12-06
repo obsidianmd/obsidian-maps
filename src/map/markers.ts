@@ -1,11 +1,12 @@
-import { App, BasesEntry, BasesPropertyId, Keymap, Menu, setIcon } from 'obsidian';
-import { Map, LngLatBounds, GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
+import { App, BasesEntry, BasesPropertyId, Keymap, ListValue, Menu, Value, setIcon } from 'obsidian';
+import { GeoJSONSource, LngLatBounds, MapLayerMouseEvent, Map as MlMap } from 'maplibre-gl';
 import { MapMarker, MapMarkerProperties } from './types';
-import { coordinateFromValue } from './utils';
+
 import { PopupManager } from './popup';
+import { coordinateFromValue } from './utils';
 
 export class MarkerManager {
-	private map: Map | null = null;
+	private map: MlMap | null = null;
 	private app: App;
 	private mapEl: HTMLElement;
 	private markers: MapMarker[] = [];
@@ -35,7 +36,7 @@ export class MarkerManager {
 		this.getDisplayName = getDisplayName;
 	}
 
-	setMap(map: Map | null): void {
+	setMap(map: MlMap | null): void {
 		this.map = map;
 	}
 
@@ -113,6 +114,9 @@ export class MarkerManager {
 			this.addMarkerLayers();
 			this.setupMarkerInteractions();
 		}
+
+		// Update neighbour connections
+		this.updateNeighbourConnections(validMarkers);
 	}
 
 	private getCustomIcon(entry: BasesEntry): string | null {
@@ -364,6 +368,44 @@ export class MarkerManager {
 		});
 	}
 
+	private ensureNeighbourLayer(): void {
+		if (!this.map) return;
+		// Add source if missing
+		if (!this.map.getSource('marker-neighbours')) {
+			this.map.addSource('marker-neighbours', {
+				type: 'geojson',
+				data: {
+					type: 'FeatureCollection',
+					features: [],
+				},
+			});
+		}
+		// Add layer if missing
+		if (!this.map.getLayer('marker-neighbours')) {
+			this.map.addLayer({
+				id: 'marker-neighbours',
+				type: 'line',
+				source: 'marker-neighbours',
+				layout: {
+					'line-cap': 'round',
+					'line-join': 'round',
+				},
+				paint: {
+					'line-color': '#888888',
+					'line-opacity': 0.6,
+					'line-width': [
+						'interpolate', ['linear'], ['zoom'],
+						0, 0.2,
+						5, 0.8,
+						10, 2.0,
+						14, 3.0,
+						18, 6.0
+					],
+				},
+			}, 'marker-pins'); // place below pins
+		}
+	}
+
 	private setupMarkerInteractions(): void {
 		if (!this.map) return;
 
@@ -393,6 +435,7 @@ export class MarkerManager {
 						mapConfig.coordinatesProp,
 						mapConfig.markerIconProp,
 						mapConfig.markerColorProp,
+						mapConfig.markerNeighboursProp,
 						this.getDisplayName
 					);
 				}
@@ -467,5 +510,116 @@ export class MarkerManager {
 			}
 		});
 	}
-}
 
+	private updateNeighbourConnections(validMarkers: MapMarker[]): void {
+		if (!this.map) return;
+
+		const mapConfig = this.getMapConfig();
+		this.ensureNeighbourLayer();
+
+		const neighbourSource = this.map.getSource('marker-neighbours') as GeoJSONSource | undefined;
+		if (!neighbourSource) return;
+
+		// If no neighbours property is configured, clear the lines
+		if (!mapConfig || !mapConfig.markerNeighboursProp) {
+			neighbourSource.setData({ type: 'FeatureCollection', features: [] });
+			return;
+		}
+
+		// Build path -> marker index map for fast lookup
+		const pathToIndex = new Map<string, number>();
+		for (let i = 0; i < validMarkers.length; i++) {
+			pathToIndex.set(validMarkers[i].entry.file.path, i);
+		}
+
+		// Build unique edges
+		const edgeKeys = new Set<string>();
+		const features: GeoJSON.Feature[] = [];
+
+		for (const marker of validMarkers) {
+			const neighbours = this.extractNeighbourPaths(marker.entry, mapConfig.markerNeighboursProp);
+			if (neighbours.length === 0) continue;
+
+			const fromPath = marker.entry.file.path;
+			const fromCoord = marker.coordinates; // [lat, lng]
+
+			for (const linkPath of neighbours) {
+				// Only if neighbour is displayed as a marker
+				const targetIndex = pathToIndex.get(linkPath);
+				if (targetIndex === undefined) continue;
+				const toCoord = validMarkers[targetIndex].coordinates;
+
+				// Deduplicate undirected edges by keying on sorted path pair
+				const key = fromPath < linkPath ? `${fromPath}||${linkPath}` : `${linkPath}||${fromPath}`;
+				if (edgeKeys.has(key)) continue;
+				edgeKeys.add(key);
+
+				features.push({
+					type: 'Feature',
+					geometry: {
+						type: 'LineString',
+						coordinates: [
+							[fromCoord[1], fromCoord[0]],
+							[toCoord[1], toCoord[0]],
+						],
+					},
+					properties: {}
+				});
+			}
+		}
+
+		neighbourSource.setData({
+			type: 'FeatureCollection',
+			features,
+		});
+	}
+
+	private extractNeighbourPaths(entry: BasesEntry, neighboursProp: BasesPropertyId): string[] {
+		try {
+			const value = entry.getValue(neighboursProp) as Value | null;
+			if (!value || !value.isTruthy()) return [];
+			const sourcePath = entry.file.path;
+			return this.linksFromValue(value, sourcePath);
+		} catch {
+			return [];
+		}
+	}
+
+	private linksFromValue(value: Value, sourcePath: string): string[] {
+		const paths: string[] = [];
+
+		const addFromString = (str: string) => {
+			// Find wiki-links [[...]] possibly with aliases or headings
+			const re = /\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g;
+			let m: RegExpExecArray | null;
+			let anyMatch = false;
+			while ((m = re.exec(str)) !== null) {
+				anyMatch = true;
+				const linkText = m[1].trim();
+				const file = this.app.metadataCache.getFirstLinkpathDest(linkText, sourcePath);
+				if (file) paths.push(file.path);
+			}
+			// If no wiki-links, try resolve the raw string as a path/link
+			if (!anyMatch) {
+				const raw = str.trim();
+				if (raw.length > 0) {
+					const file = this.app.metadataCache.getFirstLinkpathDest(raw, sourcePath);
+					if (file) paths.push(file.path);
+				}
+			}
+		};
+
+		if (value instanceof ListValue) {
+			for (let i = 0; i < value.length(); i++) {
+				const item = value.get(i);
+				if (!item) continue;
+				addFromString(item.toString());
+			}
+		}
+		else {
+			addFromString(value.toString());
+		}
+
+		return paths;
+	}
+}
