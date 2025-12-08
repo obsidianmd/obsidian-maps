@@ -8,8 +8,7 @@ export class CustomGeolocateControl {
 
 	constructor() {
 		this.containerEl = createDiv('maplibregl-ctrl maplibregl-ctrl-group canvas-control-group mod-raised');
-		
-		// Create the underlying MapLibre GeolocateControl
+
 		this.geolocateControl = new MapLibreGeolocateControl({
 			positionOptions: {
 				enableHighAccuracy: true
@@ -20,16 +19,13 @@ export class CustomGeolocateControl {
 
 	onAdd(map: Map): HTMLElement {
 		this.map = map;
-		
-		// Create the locate button
+
 		const locateButton = this.containerEl.createEl('div', {
 			cls: 'maplibregl-ctrl-geolocate canvas-control-item',
 			attr: { 'aria-label': 'Locate user' }
 		});
 		setIcon(locateButton, 'locate-fixed');
 
-		// Add the MapLibre geolocate control to the map (hidden)
-		// This handles all the geolocation logic
 		map.addControl(this.geolocateControl, 'top-right');
 		
 		// Hide the default geolocate control UI
@@ -38,7 +34,6 @@ export class CustomGeolocateControl {
 			defaultControl.parentElement.style.display = 'none';
 		}
 
-		// Trigger geolocation when our custom button is clicked
 		locateButton.addEventListener('click', () => {
 			this.geolocateControl.trigger();
 		});
