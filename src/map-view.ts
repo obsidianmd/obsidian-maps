@@ -13,6 +13,7 @@ import { LngLatLike, Map, setRTLTextPlugin } from 'maplibre-gl';
 import type ObsidianMapsPlugin from './main';
 import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './map/constants';
 import { CustomZoomControl } from './map/controls/zoom-control';
+import { CustomGeolocateControl } from './map/controls/geolocate-control';
 import { BackgroundSwitcherControl } from './map/controls/background-switcher';
 import { StyleManager } from './map/style';
 import { PopupManager } from './map/popup';
@@ -209,6 +210,7 @@ export class MapView extends BasesView {
 		this.markerManager.setMap(this.map);
 
 		this.map.addControl(new CustomZoomControl(), 'top-right');
+		this.map.addControl(new CustomGeolocateControl(), 'top-right');
 
 		// Add background switcher if multiple tile sets are available
 		if (this.plugin.settings.tileSets.length > 1) {
