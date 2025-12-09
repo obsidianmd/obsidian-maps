@@ -17,7 +17,7 @@ import { BackgroundSwitcherControl } from './map/controls/background-switcher';
 import { StyleManager } from './map/style';
 import { PopupManager } from './map/popup';
 import { MarkerManager } from './map/markers';
-import { hasOwnProperty, coordinateFromValue } from './map/utils';
+import { hasOwnProperty, parseLatLng } from './map/utils';
 import { rtlPluginCode } from './map/rtl-plugin-code';
 
 interface MapConfig {

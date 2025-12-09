@@ -1,9 +1,9 @@
-import { Value, NumberValue, StringValue, ListValue } from 'obsidian';
+import { NumberValue, StringValue, ListValue } from 'obsidian';
 
 /**
- * Converts a Value to coordinate tuple [lat, lng]
+ * Converts a Value, string, or array to coordinate tuple [lat, lng]
  */
-export function coordinateFromValue(value: Value | null): [number, number] | null {
+export function parseLatLng(value: unknown | null): [number, number] | null {
 	let lat: number | null = null;
 	let lng: number | null = null;
 
@@ -23,6 +23,19 @@ export function coordinateFromValue(value: Value | null): [number, number] | nul
 			lng = parseCoordinate(parts[1].trim());
 		}
 	}
+	else if (String.isString(value)) {
+		const parts = value.trim().split(',');
+		if (parts.length >= 2) {
+			lat = parseCoordinate(parts[0].trim());
+			lng = parseCoordinate(parts[1].trim());
+		}
+	}
+	else if (Array.isArray(value)) {
+		if (value.length >= 2) {
+			lat = parseCoordinate(value[0]);
+			lng = parseCoordinate(value[1]);
+		}
+	}
 
 	if (lat && lng && verifyLatLng(lat, lng)) {
 		return [lat, lng];
@@ -39,7 +52,7 @@ export function verifyLatLng(lat: number, lng: number): boolean {
 }
 
 /**
- * Parses a coordinate value from various formats
+ * Parses a single coordinate value from various formats
  */
 export function parseCoordinate(value: unknown): number | null {
 	if (value instanceof NumberValue) {
