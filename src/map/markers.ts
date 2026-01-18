@@ -511,71 +511,60 @@ export class MarkerManager {
 		});
 	}
 
-	private updateNeighbourConnections(validMarkers: MapMarker[]): void {
+	private updateNeighbourConnections(markers: MapMarker[]): void {
 		if (!this.map) return;
-
 		const mapConfig = this.getMapConfig();
+		const prop = mapConfig?.markerNeighboursProp;
+		
 		this.ensureNeighbourLayer();
-
-		const neighbourSource = this.map.getSource('marker-neighbours') as GeoJSONSource | undefined;
-		if (!neighbourSource) return;
-
-		// If no neighbours property is configured, clear the lines
-		if (!mapConfig || !mapConfig.markerNeighboursProp) {
-			neighbourSource.setData({ type: 'FeatureCollection', features: [] });
+		
+		const source = this.map.getSource("marker-neighbours") as GeoJSONSource | undefined;
+		if (!source) return;
+		
+		if (!prop || markers.length === 0) {
+			source.setData({ type: "FeatureCollection", features: [] });
 			return;
 		}
-
-		// Build path -> marker index map for fast lookup
-		const pathToIndex = new Map<string, number>();
-		for (let i = 0; i < validMarkers.length; i++) {
-			pathToIndex.set(validMarkers[i].entry.file.path, i);
-		}
-
-		// Build unique edges
+		
+		const byPath = new Map(markers.map((m, i) => [m.entry.file.path, i] as const));
+		
 		const edgeKeys = new Set<string>();
-		const features: GeoJSON.Feature[] = [];
-
-		for (const marker of validMarkers) {
-			const neighbours = this.extractNeighbourPaths(marker.entry, mapConfig.markerNeighboursProp);
-			if (neighbours.length === 0) continue;
-
-			const fromPath = marker.entry.file.path;
-			const fromCoord = marker.coordinates; // [lat, lng]
-
-			for (const linkPath of neighbours) {
+		const features: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+		
+		for (const from of markers) {
+			const fromPath = from.entry.file.path;
+		    const toPaths = this.extractNeighbourPaths(from.entry, prop);
+			
+			for (const toPath of toPaths) {
 				// Avoid self-links
-				if (linkPath === fromPath) continue;
-
-				// Only if neighbour is displayed as a marker
-				const targetIndex = pathToIndex.get(linkPath);
-				if (targetIndex === undefined) continue;
-
-				const toCoord = validMarkers[targetIndex].coordinates;
-
-				// Deduplicate undirected edges by keying on sorted path pair
-				const key = fromPath < linkPath ? `${fromPath}||${linkPath}` : `${linkPath}||${fromPath}`;
+				if (toPath === fromPath) continue;
+				
+				// Avoid links to non-existing markers
+				const toIndex = byPath.get(toPath);
+				if (toIndex === undefined) continue;
+				
+				// Deduplicate edges
+				const key = fromPath < toPath ? `${fromPath}||${toPath}` : `${toPath}||${fromPath}`;
 				if (edgeKeys.has(key)) continue;
 				edgeKeys.add(key);
-
+				
+				const to = markers[toIndex];
+				
 				features.push({
-					type: 'Feature',
+					type: "Feature",
 					geometry: {
-						type: 'LineString',
+						type: "LineString",
 						coordinates: [
-							[fromCoord[1], fromCoord[0]],
-							[toCoord[1], toCoord[0]],
+							[from.coordinates[1], from.coordinates[0]],
+							[to.coordinates[1], to.coordinates[0]],
 						],
 					},
 					properties: {}
 				});
 			}
 		}
-
-		neighbourSource.setData({
-			type: 'FeatureCollection',
-			features,
-		});
+		
+		source.setData({ type: "FeatureCollection", features });
 	}
 
 	private extractNeighbourPaths(entry: BasesEntry, neighboursProp: BasesPropertyId): string[] {
