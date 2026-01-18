@@ -544,9 +544,13 @@ export class MarkerManager {
 			const fromCoord = marker.coordinates; // [lat, lng]
 
 			for (const linkPath of neighbours) {
+				// Avoid self-links
+				if (linkPath === fromPath) continue;
+
 				// Only if neighbour is displayed as a marker
 				const targetIndex = pathToIndex.get(linkPath);
 				if (targetIndex === undefined) continue;
+
 				const toCoord = validMarkers[targetIndex].coordinates;
 
 				// Deduplicate undirected edges by keying on sorted path pair
