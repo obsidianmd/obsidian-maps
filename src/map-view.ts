@@ -9,7 +9,7 @@ import {
 	NullValue,
 	ViewOption,
 } from 'obsidian';
-import { LngLatLike, Map, setRTLTextPlugin } from 'maplibre-gl';
+import { LngLatBounds, LngLatLike, Map, setRTLTextPlugin } from 'maplibre-gl';
 import type ObsidianMapsPlugin from './main';
 import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './map/constants';
 import { CustomZoomControl } from './map/controls/zoom-control';
@@ -17,6 +17,7 @@ import { BackgroundSwitcherControl } from './map/controls/background-switcher';
 import { StyleManager } from './map/style';
 import { PopupManager } from './map/popup';
 import { MarkerManager } from './map/markers';
+import { GPXManager } from './map/gpx';
 import { hasOwnProperty, coordinateFromValue } from './map/utils';
 import { rtlPluginCode } from './map/rtl-plugin-code';
 
@@ -24,6 +25,8 @@ interface MapConfig {
 	coordinatesProp: BasesPropertyId | null;
 	markerIconProp: BasesPropertyId | null;
 	markerColorProp: BasesPropertyId | null;
+	gpxProp: BasesPropertyId | null;
+	gpxColorProp: BasesPropertyId | null;
 	mapHeight: number;
 	defaultZoom: number;
 	center: [number, number];
@@ -55,6 +58,7 @@ export class MapView extends BasesView {
 	private styleManager: StyleManager;
 	private popupManager: PopupManager;
 	private markerManager: MarkerManager;
+	private gpxManager: GPXManager;
 
 	// Static flag to track RTL plugin initialization
 	private static rtlPluginInitialized = false;
@@ -71,6 +75,15 @@ export class MapView extends BasesView {
 		this.popupManager = new PopupManager(this.containerEl, this.app);
 		this.markerManager = new MarkerManager(
 			this.app,
+			this.mapEl,
+			this.popupManager,
+			(path, newLeaf) => void this.app.workspace.openLinkText(path, '', newLeaf),
+			() => this.data,
+			() => this.mapConfig,
+			(prop) => this.config.getDisplayName(prop)
+		);
+		this.gpxManager = new GPXManager(
+			this.app, 
 			this.mapEl,
 			this.popupManager,
 			(path, newLeaf) => void this.app.workspace.openLinkText(path, '', newLeaf),
@@ -118,6 +131,7 @@ export class MapView extends BasesView {
 		// Re-add markers after style change since setStyle removes all runtime layers
 		this.map.once('styledata', () => {
 			void this.markerManager.updateMarkers(this.data);
+			void this.gpxManager.updateGPX(this.data);
 		});
 	}
 
@@ -207,7 +221,7 @@ export class MapView extends BasesView {
 		// Set map reference in managers
 		this.popupManager.setMap(this.map);
 		this.markerManager.setMap(this.map);
-
+		this.gpxManager.setMap(this.map);
 		this.map.addControl(new CustomZoomControl(), 'top-right');
 
 		// Add background switcher if multiple tile sets are available
@@ -244,7 +258,9 @@ export class MapView extends BasesView {
 				this.map.setCenter([this.mapConfig.center[1], this.mapConfig.center[0]]); // MapLibre uses [lng, lat]
 			}
 			else {
-				const bounds = this.markerManager.getBounds();
+				const MarkerBounds = this.markerManager.getBounds();
+				const GPXBounds = this.gpxManager.getBounds();
+				const bounds = MarkerBounds?.extend(GPXBounds? GPXBounds : new LngLatBounds());
 				if (bounds) {
 					this.map.setCenter(bounds.getCenter()); // Center on markers
 				}
@@ -255,7 +271,9 @@ export class MapView extends BasesView {
 				this.map.setZoom(this.mapConfig.defaultZoom); // Use configured zoom
 			}
 			else {
-				const bounds = this.markerManager.getBounds();
+				const MarkerBounds = this.markerManager.getBounds();
+				const GPXBounds = this.gpxManager.getBounds();
+				const bounds = MarkerBounds?.extend(GPXBounds? GPXBounds : new LngLatBounds());
 				if (bounds) {
 					this.map.fitBounds(bounds, { padding: 20 }); // Fit all markers
 				}
@@ -280,6 +298,7 @@ export class MapView extends BasesView {
 			this.map = null;
 		}
 		this.markerManager.setMap(null);
+		this.gpxManager.setMap(null);
 	}
 
 	public onDataUpdated(): void {
@@ -311,6 +330,7 @@ export class MapView extends BasesView {
 
 			if (this.map && this.data) {
 				await this.markerManager.updateMarkers(this.data);
+				await this.gpxManager.updateGPX(this.data);
 
 				// Apply pending map state if available (for restoring ephemeral state)
 				if (this.pendingMapState && this.map) {
@@ -442,6 +462,8 @@ export class MapView extends BasesView {
 		const coordinatesProp = this.config.getAsPropertyId('coordinates');
 		const markerIconProp = this.config.getAsPropertyId('markerIcon');
 		const markerColorProp = this.config.getAsPropertyId('markerColor');
+		const gpxProp = this.config.getAsPropertyId('gpx');
+		const gpxColorProp = this.config.getAsPropertyId('gpxColor');
 
 		// Load numeric configurations with validation
 		const minZoom = this.getNumericConfig('minZoom', 0, 0, 24);
@@ -493,6 +515,8 @@ export class MapView extends BasesView {
 			coordinatesProp,
 			markerIconProp,
 			markerColorProp,
+			gpxProp,
+			gpxColorProp,
 			mapHeight,
 			defaultZoom,
 			center,
@@ -752,6 +776,26 @@ export class MapView extends BasesView {
 						key: 'markerColor',
 						filter: prop => !prop.startsWith('file.'),
 						placeholder: 'Property',
+					},
+				]
+			},
+			{
+				displayName: 'GPX',
+				type: 'group',
+				items: [
+					{
+						displayName: 'GPX file',
+						type: 'property',
+						key: 'gpx',
+						filter: prop => !prop.startsWith('file.'),
+						placeholder: 'Property containing a GPX link',
+					},
+					{
+						displayName: 'GPX color',
+						type: 'property',
+						key: 'gpxColor',
+						filter: prop => !prop.startsWith('file.'),
+						placeholder: 'Property for GPX track color',
 					},
 				]
 			},

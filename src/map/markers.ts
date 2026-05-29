@@ -5,17 +5,17 @@ import { coordinateFromValue } from './utils';
 import { PopupManager } from './popup';
 
 export class MarkerManager {
-	private map: Map | null = null;
-	private app: App;
-	private mapEl: HTMLElement;
+	protected map: Map | null = null;
+	protected app: App;
+	protected mapEl: HTMLElement;
 	private markers: MapMarker[] = [];
-	private bounds: LngLatBounds | null = null;
+	protected bounds: LngLatBounds | null = null;
 	private loadedIcons: Set<string> = new Set();
-	private popupManager: PopupManager;
-	private onOpenFile: (path: string, newLeaf: boolean) => void;
-	private getData: () => any;
-	private getMapConfig: () => any;
-	private getDisplayName: (prop: BasesPropertyId) => string;
+	protected popupManager: PopupManager;
+	protected onOpenFile: (path: string, newLeaf: boolean) => void;
+	protected getData: () => any;
+	protected getMapConfig: () => any;
+	protected getDisplayName: (prop: BasesPropertyId) => string;
 
 	constructor(
 		app: App,
@@ -393,6 +393,8 @@ export class MarkerManager {
 						mapConfig.coordinatesProp,
 						mapConfig.markerIconProp,
 						mapConfig.markerColorProp,
+						mapConfig.gpxProp,
+						mapConfig.gpxColorProp,
 						this.getDisplayName
 					);
 				}
