@@ -1,9 +1,17 @@
+import { Position, MultiLineString, MultiPolygon } from 'geojson';
+
 import { BasesEntry, TFile } from 'obsidian';
 
-export interface MapMarker {
+export interface MapElement {
+	type: 'Point' | 'MultiPoint' | 'MultiLineString' | 'MultiPolygon';
 	entry: BasesEntry;
-	coordinates: [number, number];
+	// Must be formatted as [lng, lat] for GeoJSON compatibility
+	point: Position | null; // For single point (marker)
+	points: Position[] | null; // For multiple points (markers/multiple points)
+	lines: MultiLineString | null; // For multiple lines (lines/gpx)
+	polygons: MultiPolygon | null; // For multiple polygons (polygons)
 }
+
 
 export interface MapMarkerProperties {
 	entryIndex: number;
