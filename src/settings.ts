@@ -1,4 +1,4 @@
-import { App, Modal, PluginSettingTab, Setting, setIcon, setTooltip } from 'obsidian';
+import { App, Modal, PluginSettingTab, Setting, type SettingDefinitionItem, requireApiVersion, setIcon, setTooltip } from 'obsidian';
 import ObsidianMapsPlugin from './main';
 
 export interface TileSet {
@@ -100,6 +100,58 @@ export class MapSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	private refresh(): void {
+		if (requireApiVersion('1.13.0')) {
+			this.update();
+		} else {
+			this.display();
+		}
+	}
+
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		if (!requireApiVersion('1.13.0')) return [];
+
+		return [
+			{
+				name: 'Backgrounds',
+				render: (setting) => {
+					setting
+						.setHeading()
+						.addButton(button => button
+							.setButtonText('Add background')
+							.setCta()
+							.onClick(() => {
+								new TileSetModal(this.app, null, async (tileSet) => {
+									this.plugin.settings.tileSets.push(tileSet);
+									await this.plugin.saveSettings();
+									this.refresh();
+								}).open();
+							})
+						);
+				}
+			},
+			{
+				name: 'Configured backgrounds',
+				searchable: false,
+				render: (setting) => {
+					setting.settingEl.empty();
+					const listContainer = setting.settingEl.createDiv('map-tileset-list');
+
+					this.plugin.settings.tileSets.forEach((tileSet, index) => {
+						this.displayTileSetItem(listContainer, tileSet, index);
+					});
+
+					if (this.plugin.settings.tileSets.length === 0) {
+						listContainer.createDiv({
+							cls: 'mobile-option-setting-item',
+							text: 'Add background sets available to all maps.'
+						});
+					}
+				}
+			}
+		];
+	}
+
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
@@ -114,7 +166,7 @@ export class MapSettingTab extends PluginSettingTab {
 					new TileSetModal(this.app, null, async (tileSet) => {
 						this.plugin.settings.tileSets.push(tileSet);
 						await this.plugin.saveSettings();
-						this.display();
+						this.refresh();
 					}).open();
 				})
 			);
@@ -146,7 +198,7 @@ export class MapSettingTab extends PluginSettingTab {
 				new TileSetModal(this.app, { ...tileSet }, async (updatedTileSet) => {
 					this.plugin.settings.tileSets[index] = updatedTileSet;
 					await this.plugin.saveSettings();
-					this.display();
+					this.refresh();
 				}).open();
 			});
 		});
@@ -157,9 +209,8 @@ export class MapSettingTab extends PluginSettingTab {
 			el.addEventListener('click', async () => {
 				this.plugin.settings.tileSets.splice(index, 1);
 				await this.plugin.saveSettings();
-				this.display();
+				this.refresh();
 			});
 		});
 	}
 }
-
