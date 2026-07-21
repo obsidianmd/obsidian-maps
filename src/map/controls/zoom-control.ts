@@ -1,5 +1,6 @@
 import { setIcon } from 'obsidian';
 import { Map } from 'maplibre-gl';
+import { t } from '../../i18n';
 
 export class CustomZoomControl {
 	private containerEl: HTMLElement;
@@ -11,7 +12,7 @@ export class CustomZoomControl {
 	onAdd(map: Map): HTMLElement {
 		const zoomInButton = this.containerEl.createEl('div', {
 			cls: 'maplibregl-ctrl-zoom-in canvas-control-item',
-			attr: { 'aria-label': 'Zoom in' }
+			attr: { 'aria-label': t('map.control.zoomIn') }
 		});
 		setIcon(zoomInButton, 'plus');
 
@@ -21,7 +22,7 @@ export class CustomZoomControl {
 
 		const zoomOutButton = this.containerEl.createEl('div', {
 			cls: 'maplibregl-ctrl-zoom-out canvas-control-item',
-			attr: { 'aria-label': 'Zoom out' }
+			attr: { 'aria-label': t('map.control.zoomOut') }
 		});
 		setIcon(zoomOutButton, 'minus');
 
@@ -38,4 +39,3 @@ export class CustomZoomControl {
 		}
 	}
 }
-

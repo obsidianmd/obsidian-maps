@@ -1,6 +1,7 @@
 import { Plugin } from 'obsidian';
 import { MapView } from './map-view';
 import { MapSettings, DEFAULT_SETTINGS, MapSettingTab } from './settings';
+import { t } from './i18n';
 
 export default class ObsidianMapsPlugin extends Plugin {
 	settings: MapSettings;
@@ -9,7 +10,7 @@ export default class ObsidianMapsPlugin extends Plugin {
 		await this.loadSettings();
 
 		this.registerBasesView('map', {
-			name: 'Map',
+			name: t('map.name'),
 			icon: 'lucide-map',
 			factory: (controller, containerEl) => new MapView(controller, containerEl, this),
 			options: MapView.getViewOptions,

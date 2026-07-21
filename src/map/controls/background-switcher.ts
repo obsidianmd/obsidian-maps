@@ -1,5 +1,6 @@
 import { setIcon, Menu } from 'obsidian';
 import { Map } from 'maplibre-gl';
+import { t } from '../../i18n';
 
 export class BackgroundSwitcherControl {
 	private containerEl: HTMLElement;
@@ -21,7 +22,7 @@ export class BackgroundSwitcherControl {
 	onAdd(map: Map): HTMLElement {
 		const button = this.containerEl.createEl('div', {
 			cls: 'canvas-control-item',
-			attr: { 'aria-label': 'Switch background' }
+			attr: { 'aria-label': t('map.control.switchBackground') }
 		});
 		setIcon(button, 'layers');
 
@@ -53,4 +54,3 @@ export class BackgroundSwitcherControl {
 		}
 	}
 }
-

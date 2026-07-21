@@ -11,4 +11,8 @@ Adds a [map layout](https://help.obsidian.md/bases/views/map) to [Obsidian Bases
 - Load custom background tiles.
 - Define default zoom options.
 
+## Translations
+
+The plugin follows the language selected in Obsidian and falls back to English when a translation is unavailable. English, Simplified Chinese, and Traditional Chinese are currently included. Translation dictionaries live in `src/i18n/locales/`.
+
 See the [full documentation](https://help.obsidian.md/bases/views/map) on the Obsidian Help site.
