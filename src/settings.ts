@@ -1,5 +1,6 @@
 import { App, Modal, PluginSettingTab, Setting, setIcon, setTooltip } from 'obsidian';
 import ObsidianMapsPlugin from './main';
+import { t } from './i18n';
 
 export interface TileSet {
 	id: string;
@@ -36,13 +37,13 @@ class TileSetModal extends Modal {
 	onOpen() {
 		const { contentEl, modalEl } = this;
 		
-		this.setTitle(this.isNew ? 'Add background' : 'Edit background');
+		this.setTitle(this.isNew ? t('settings.addBackground') : t('settings.editBackground'));
 
 		new Setting(contentEl)
-			.setName('Name')
-			.setDesc('A name for this background.')
+			.setName(t('settings.name'))
+			.setDesc(t('settings.nameDescription'))
 			.addText(text => text
-				.setPlaceholder('e.g. Terrain, Satellite')
+				.setPlaceholder(t('settings.namePlaceholder'))
 				.setValue(this.tileSet.name)
 				.onChange(value => {
 					this.tileSet.name = value;
@@ -50,7 +51,7 @@ class TileSetModal extends Modal {
 			);
 
 		const lightModeSetting = new Setting(contentEl)
-			.setName('Light mode')
+			.setName(t('settings.lightMode'))
 			.addText(text => text
 				.setPlaceholder('https://tiles.openfreemap.org/styles/bright')
 				.setValue(this.tileSet.lightTiles)
@@ -59,11 +60,16 @@ class TileSetModal extends Modal {
 				})
 			);
 		
-		lightModeSetting.descEl.innerHTML = 'Tile URL or style URL for light mode. See the <a href="https://help.obsidian.md/bases/views/map">Map view documentation</a> for examples.';
+		lightModeSetting.descEl.appendText(t('settings.lightModeDescriptionBeforeLink'));
+		lightModeSetting.descEl.createEl('a', {
+			text: t('settings.mapViewDocumentation'),
+			href: 'https://help.obsidian.md/bases/views/map',
+		});
+		lightModeSetting.descEl.appendText(t('settings.lightModeDescriptionAfterLink'));
 
 		new Setting(contentEl)
-			.setName('Dark mode (optional)')
-			.setDesc('Tile URL or style URL for dark mode. If not specified, light mode tiles will be used.')
+			.setName(t('settings.darkMode'))
+			.setDesc(t('settings.darkModeDescription'))
 			.addText(text => text
 				.setPlaceholder('https://tiles.openfreemap.org/styles/dark')
 				.setValue(this.tileSet.darkTiles)
@@ -74,13 +80,13 @@ class TileSetModal extends Modal {
 
 		const buttonContainerEl = modalEl.createDiv('modal-button-container');
 		
-		buttonContainerEl.createEl('button', { cls: 'mod-cta', text: 'Save' })
+		buttonContainerEl.createEl('button', { cls: 'mod-cta', text: t('settings.save') })
 			.addEventListener('click', () => {
 				this.onSave(this.tileSet);
 				this.close();
 			});
 		
-		buttonContainerEl.createEl('button', { text: 'Cancel' })
+		buttonContainerEl.createEl('button', { text: t('settings.cancel') })
 			.addEventListener('click', () => {
 				this.close();
 			});
@@ -106,9 +112,9 @@ export class MapSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setHeading()
-			.setName('Backgrounds')
+			.setName(t('settings.backgrounds'))
 			.addButton(button => button
-				.setButtonText('Add background')
+				.setButtonText(t('settings.addBackground'))
 				.setCta()
 				.onClick(() => {
 					new TileSetModal(this.app, null, async (tileSet) => {
@@ -129,7 +135,7 @@ export class MapSettingTab extends PluginSettingTab {
 		if (this.plugin.settings.tileSets.length === 0) {
 			listContainer.createDiv({
 				cls: 'mobile-option-setting-item',
-				text: 'Add background sets available to all maps.'
+				text: t('settings.emptyBackgrounds')
 			});
 		}
 	}
@@ -137,11 +143,11 @@ export class MapSettingTab extends PluginSettingTab {
 	private displayTileSetItem(containerEl: HTMLElement, tileSet: TileSet, index: number): void {
 		const itemEl = containerEl.createDiv('mobile-option-setting-item');
 
-		itemEl.createSpan({ cls: 'mobile-option-setting-item-name', text: tileSet.name || 'Untitled' });
+		itemEl.createSpan({ cls: 'mobile-option-setting-item-name', text: tileSet.name || t('settings.untitled') });
 
 		itemEl.createDiv('clickable-icon', el => {
 			setIcon(el, 'pencil');
-			setTooltip(el, 'Edit');
+			setTooltip(el, t('settings.edit'));
 			el.addEventListener('click', () => {
 				new TileSetModal(this.app, { ...tileSet }, async (updatedTileSet) => {
 					this.plugin.settings.tileSets[index] = updatedTileSet;
@@ -153,7 +159,7 @@ export class MapSettingTab extends PluginSettingTab {
 
 		itemEl.createDiv('clickable-icon', el => {
 			setIcon(el, 'trash-2');
-			setTooltip(el, 'Delete');
+			setTooltip(el, t('settings.delete'));
 			el.addEventListener('click', async () => {
 				this.plugin.settings.tileSets.splice(index, 1);
 				await this.plugin.saveSettings();
@@ -162,4 +168,3 @@ export class MapSettingTab extends PluginSettingTab {
 		});
 	}
 }
-

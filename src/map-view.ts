@@ -19,6 +19,7 @@ import { PopupManager } from './map/popup';
 import { MarkerManager } from './map/markers';
 import { hasOwnProperty, coordinateFromValue } from './map/utils';
 import { rtlPluginCode } from './map/rtl-plugin-code';
+import { t } from './i18n';
 
 interface MapConfig {
 	coordinatesProp: BasesPropertyId | null;
@@ -587,7 +588,7 @@ export class MapView extends BasesView {
 
 		const menu = Menu.forEvent(evt);
 		menu.addItem(item => item
-			.setTitle('New note')
+			.setTitle(t('map.context.newNote'))
 			.setSection('action')
 			.setIcon('square-pen')
 			.onClick(() => {
@@ -605,7 +606,7 @@ export class MapView extends BasesView {
 		);
 
 		menu.addItem(item => item
-			.setTitle('Copy coordinates')
+			.setTitle(t('map.context.copyCoordinates'))
 			.setSection('action')
 			.setIcon('copy')
 			.onClick(() => {
@@ -615,7 +616,7 @@ export class MapView extends BasesView {
 		);
 
 		menu.addItem(item => item
-			.setTitle('Set default center point')
+			.setTitle(t('map.context.setDefaultCenter'))
 			.setSection('action')
 			.setIcon('map-pin')
 			.onClick(() => {
@@ -638,7 +639,7 @@ export class MapView extends BasesView {
 		);
 
 		menu.addItem(item => item
-			.setTitle(`Set default zoom (${currentZoom})`)
+			.setTitle(t('map.context.setDefaultZoom', { zoom: currentZoom }))
 			.setSection('action')
 			.setIcon('crosshair')
 			.onClick(() => {
@@ -680,7 +681,7 @@ export class MapView extends BasesView {
 	static getViewOptions(): ViewOption[] {
 		return [
 			{
-				displayName: 'Embedded height',
+				displayName: t('map.options.embeddedHeight'),
 				type: 'slider',
 				key: 'mapHeight',
 				min: 200,
@@ -689,18 +690,18 @@ export class MapView extends BasesView {
 				default: DEFAULT_MAP_HEIGHT,
 			},
 			{
-				displayName: 'Display',
+				displayName: t('map.options.display'),
 				type: 'group',
 				items: [
 
 					{
-						displayName: 'Center coordinates',
+						displayName: t('map.options.centerCoordinates'),
 						type: 'formula',
 						key: 'center',
-						placeholder: '[latitude, longitude]',
+						placeholder: t('map.options.centerPlaceholder'),
 					},
 					{
-						displayName: 'Default zoom',
+						displayName: t('map.options.defaultZoom'),
 						type: 'slider',
 						key: 'defaultZoom',
 						min: 1,
@@ -709,7 +710,7 @@ export class MapView extends BasesView {
 						default: DEFAULT_MAP_ZOOM,
 					},
 					{
-						displayName: 'Minimum zoom',
+						displayName: t('map.options.minimumZoom'),
 						type: 'slider',
 						key: 'minZoom',
 						min: 0,
@@ -718,7 +719,7 @@ export class MapView extends BasesView {
 						default: 0,
 					},
 					{
-						displayName: 'Maximum zoom',
+						displayName: t('map.options.maximumZoom'),
 						type: 'slider',
 						key: 'maxZoom',
 						min: 0,
@@ -729,43 +730,43 @@ export class MapView extends BasesView {
 				]
 			},
 			{
-				displayName: 'Markers',
+				displayName: t('map.options.markers'),
 				type: 'group',
 				items: [
 					{
-						displayName: 'Marker coordinates',
+						displayName: t('map.options.markerCoordinates'),
 						type: 'property',
 						key: 'coordinates',
 						filter: prop => !prop.startsWith('file.'),
-						placeholder: 'Property',
+						placeholder: t('map.options.propertyPlaceholder'),
 					},
 					{
-						displayName: 'Marker icon',
+						displayName: t('map.options.markerIcon'),
 						type: 'property',
 						key: 'markerIcon',
 						filter: prop => !prop.startsWith('file.'),
-						placeholder: 'Property',
+						placeholder: t('map.options.propertyPlaceholder'),
 					},
 					{
-						displayName: 'Marker color',
+						displayName: t('map.options.markerColor'),
 						type: 'property',
 						key: 'markerColor',
 						filter: prop => !prop.startsWith('file.'),
-						placeholder: 'Property',
+						placeholder: t('map.options.propertyPlaceholder'),
 					},
 				]
 			},
 			{
-				displayName: 'Background',
+				displayName: t('map.options.background'),
 				type: 'group',
 				items: [
 					{
-						displayName: 'Map tiles',
+						displayName: t('map.options.mapTiles'),
 						type: 'multitext',
 						key: 'mapTiles',
 					},
 					{
-						displayName: 'Map tiles in dark mode',
+						displayName: t('map.options.mapTilesDark'),
 						type: 'multitext',
 						key: 'mapTilesDark',
 					},

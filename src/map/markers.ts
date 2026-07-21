@@ -3,6 +3,7 @@ import { Map, LngLatBounds, GeoJSONSource, MapLayerMouseEvent } from 'maplibre-g
 import { MapMarker, MapMarkerProperties } from './types';
 import { coordinateFromValue } from './utils';
 import { PopupManager } from './popup';
+import { t } from '../i18n';
 
 export class MarkerManager {
 	private map: Map | null = null;
@@ -434,7 +435,7 @@ export class MarkerManager {
 				// Add copy coordinates option
 				menu.addItem(item => item
 					.setSection('action')
-					.setTitle('Copy coordinates')
+					.setTitle(t('map.context.copyCoordinates'))
 					.setIcon('map-pin')
 					.onClick(() => {
 						const coordString = `${lat}, ${lng}`;
@@ -443,7 +444,7 @@ export class MarkerManager {
 
 				menu.addItem(item => item
 					.setSection('danger')
-					.setTitle('Delete file')
+					.setTitle(t('map.context.deleteFile'))
 					.setIcon('trash-2')
 					.setWarning(true)
 					.onClick(() => this.app.fileManager.promptForDeletion(file)));
@@ -468,4 +469,3 @@ export class MarkerManager {
 		});
 	}
 }
-
