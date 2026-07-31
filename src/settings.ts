@@ -49,8 +49,16 @@ class TileSetModal extends Modal {
 				})
 			);
 
-		const lightModeSetting = new Setting(contentEl)
+		new Setting(contentEl)
 			.setName('Light mode')
+			.setDesc(createFragment(frag => {
+				frag.appendText('Tile URL or style URL for light mode. See the ');
+				frag.createEl('a', {
+					href: 'https://help.obsidian.md/bases/views/map',
+					text: 'Map view documentation'
+				});
+				frag.appendText(' for examples.');
+			}))
 			.addText(text => text
 				.setPlaceholder('https://tiles.openfreemap.org/styles/bright')
 				.setValue(this.tileSet.lightTiles)
@@ -58,8 +66,6 @@ class TileSetModal extends Modal {
 					this.tileSet.lightTiles = value;
 				})
 			);
-		
-		lightModeSetting.descEl.innerHTML = 'Tile URL or style URL for light mode. See the <a href="https://help.obsidian.md/bases/views/map">Map view documentation</a> for examples.';
 
 		new Setting(contentEl)
 			.setName('Dark mode (optional)')

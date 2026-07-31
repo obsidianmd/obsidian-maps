@@ -73,7 +73,4 @@ export default class ObsidianMapsPlugin extends Plugin {
 			GEOLOCATION_OPTIONS
 		);
 	}
-
-	onunload() {
-	}
 }

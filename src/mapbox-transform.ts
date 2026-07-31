@@ -23,28 +23,19 @@ export function transformMapboxStyle(style: StyleSpecification, accessToken: str
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const source = style.sources[sourceId] as any;
 			if (source.url && isMapboxURL(source.url)) {
-				const transformed = transformMapboxUrl(source.url, 'Source', accessToken);
-				if (transformed) {
-					source.url = transformed.url;
-				}
+				source.url = transformMapboxUrl(source.url, 'Source', accessToken) ?? source.url;
 			}
 		}
 	}
 
 	// Transform sprite URLs
 	if (style.sprite && typeof style.sprite === 'string' && isMapboxURL(style.sprite)) {
-		const transformed = transformMapboxUrl(style.sprite, 'Sprite', accessToken);
-		if (transformed) {
-			style.sprite = transformed.url;
-		}
+		style.sprite = transformMapboxUrl(style.sprite, 'Sprite', accessToken) ?? style.sprite;
 	}
 
 	// Transform glyphs URLs
 	if (style.glyphs && isMapboxURL(style.glyphs)) {
-		const transformed = transformMapboxUrl(style.glyphs, 'Glyphs', accessToken);
-		if (transformed) {
-			style.glyphs = transformed.url;
-		}
+		style.glyphs = transformMapboxUrl(style.glyphs, 'Glyphs', accessToken) ?? style.glyphs;
 	}
 
 	return style;
@@ -53,21 +44,18 @@ export function transformMapboxStyle(style: StyleSpecification, accessToken: str
 /**
  * Transforms a Mapbox URL to an HTTPS URL
  */
-function transformMapboxUrl(url: string, resourceType: string, accessToken: string): { url: string } | undefined {
+function transformMapboxUrl(url: string, resourceType: string, accessToken: string): string | undefined {
 	if (url.indexOf('/styles/') > -1 && url.indexOf('/sprite') === -1) {
-		return { url: normalizeStyleURL(url, accessToken) };
+		return normalizeStyleURL(url, accessToken);
 	}
 	if (url.indexOf('/sprites/') > -1) {
-		return { url: normalizeSpriteURL(url, '', '.json', accessToken) };
+		return normalizeSpriteURL(url, accessToken);
 	}
 	if (url.indexOf('/fonts/') > -1) {
-		return { url: normalizeGlyphsURL(url, accessToken) };
+		return normalizeGlyphsURL(url, accessToken);
 	}
-	if (url.indexOf('/v4/') > -1) {
-		return { url: normalizeSourceURL(url, accessToken) };
-	}
-	if (resourceType && resourceType === 'Source') {
-		return { url: normalizeSourceURL(url, accessToken) };
+	if (url.indexOf('/v4/') > -1 || resourceType === 'Source') {
+		return normalizeSourceURL(url, accessToken);
 	}
 	return undefined;
 }
@@ -133,7 +121,7 @@ function normalizeSourceURL(url: string, accessToken: string): string {
  * Normalizes a Mapbox sprite URL
  * Handles retina (@2x) sprites
  */
-function normalizeSpriteURL(url: string, _format: string, _extension: string, accessToken: string): string {
+function normalizeSpriteURL(url: string, accessToken: string): string {
 	const urlObject = parseUrl(url);
 	
 	// Parse the path to extract username and style_id

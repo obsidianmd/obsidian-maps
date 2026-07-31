@@ -1,12 +1,12 @@
 import { setIcon, Notice } from 'obsidian';
-import { FlyToOptions, Map, MapLibreEvent, Marker } from 'maplibre-gl';
+import { FlyToOptions, IControl, Map, MapLibreEvent, Marker } from 'maplibre-gl';
 import { GEOLOCATION_OPTIONS, geolocationErrorMessage } from '../utils';
 
 const TRACKING_ZOOM = 15;
 
 type MoveStartEvent = MapLibreEvent<MouseEvent | TouchEvent | WheelEvent | undefined>;
 
-export class CustomGeolocateControl {
+export class CustomGeolocateControl implements IControl {
 	private containerEl: HTMLElement;
 	private locateButton: HTMLElement | null = null;
 	private map: Map | null = null;
@@ -190,9 +190,7 @@ export class CustomGeolocateControl {
 			this.map.off('movestart', this.onMoveStart);
 		}
 
-		if (this.containerEl && this.containerEl.parentNode) {
-			this.containerEl.detach();
-		}
+		this.containerEl.detach();
 
 		this.map = null;
 		this.locateButton = null;

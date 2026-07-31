@@ -1,7 +1,7 @@
 import { setIcon } from 'obsidian';
-import { Map } from 'maplibre-gl';
+import { IControl, Map } from 'maplibre-gl';
 
-export class CustomZoomControl {
+export class CustomZoomControl implements IControl {
 	private containerEl: HTMLElement;
 
 	constructor() {
@@ -33,9 +33,7 @@ export class CustomZoomControl {
 	}
 
 	onRemove(): void {
-		if (this.containerEl && this.containerEl.parentNode) {
-			this.containerEl.detach();
-		}
+		this.containerEl.detach();
 	}
 }
 

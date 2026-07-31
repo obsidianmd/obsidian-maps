@@ -10,15 +10,6 @@ body {
 	margin: 1em 0;
 }
 
-.mobile-option-setting-item-description {
-	font-size: var(--font-smaller);
-	color: var(--text-muted);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	margin-top: 0.25em;
-}
-
 .bases-view[data-view-type="map"] {
 	--bases-embed-border-width: 0px;
 	--bases-view-padding: 0;
