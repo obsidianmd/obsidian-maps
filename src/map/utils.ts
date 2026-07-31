@@ -61,6 +61,32 @@ export function parseCoordinate(value: unknown): number | null {
 }
 
 /**
+ * Options shared by every geolocation request. `maximumAge` lets a recent cached
+ * fix satisfy a request, which keeps continuous tracking from pinning the GPS.
+ */
+export const GEOLOCATION_OPTIONS: PositionOptions = {
+	enableHighAccuracy: true,
+	timeout: 10000,
+	maximumAge: 5000
+};
+
+/**
+ * Converts a geolocation failure into a user-facing message
+ */
+export function geolocationErrorMessage(error: GeolocationPositionError): string {
+	switch (error.code) {
+		case error.PERMISSION_DENIED:
+			return 'Location permission denied';
+		case error.POSITION_UNAVAILABLE:
+			return 'Location information unavailable';
+		case error.TIMEOUT:
+			return 'Location request timed out';
+		default:
+			return 'Failed to get location';
+	}
+}
+
+/**
  * Wrapper for Object.hasOwn which performs type narrowing
  */
 export function hasOwnProperty<K extends PropertyKey>(o: unknown, v: K): o is Record<K, unknown> {

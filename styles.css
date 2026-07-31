@@ -106,6 +106,20 @@ body {
 	padding: 0 var(--size-4-2);
 }
 
+.user-location-marker {
+	display: flex;
+
+	circle {
+		fill: var(--interactive-accent);
+		stroke: var(--background-primary);
+		stroke-width: 2;
+	}
+}
+
+.canvas-control-item.maplibregl-ctrl-geolocate.is-active {
+	color: var(--interactive-accent);
+}
+
 .maplibregl-ctrl-attrib {
 	background-color: rgba(var(--mono-rgb-0), 0.8);
 	color: var(--text-muted);
