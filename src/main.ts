@@ -1,4 +1,4 @@
-import { Plugin, Notice } from 'obsidian';
+import { Plugin, Notice, Platform } from 'obsidian';
 import { MapView } from './map-view';
 import { MapSettings, DEFAULT_SETTINGS, MapSettingTab } from './settings';
 import { GEOLOCATION_OPTIONS, geolocationErrorMessage } from './map/utils';
@@ -16,13 +16,16 @@ export default class ObsidianMapsPlugin extends Plugin {
 			options: MapView.getViewOptions,
 		});
 
-		this.addCommand({
-			id: 'copy-current-location',
-			name: 'Copy current location to clipboard',
-			callback: () => {
-				this.getCurrentLocationAndCopy();
-			}
-		});
+		// Only registered on mobile, since desktop has no location provider
+		if (Platform.isMobileApp) {
+			this.addCommand({
+				id: 'copy-current-location',
+				name: 'Copy current location to clipboard',
+				callback: () => {
+					this.getCurrentLocationAndCopy();
+				}
+			});
+		}
 
 		this.addSettingTab(new MapSettingTab(this.app, this));
 	}

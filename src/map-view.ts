@@ -3,6 +3,7 @@ import {
 	BasesPropertyId,
 	debounce,
 	Menu,
+	Platform,
 	QueryController,
 	Value,
 	StringValue,
@@ -210,7 +211,12 @@ export class MapView extends BasesView {
 		this.markerManager.setMap(this.map);
 
 		this.map.addControl(new CustomZoomControl(), 'top-right');
-		this.map.addControl(new CustomGeolocateControl(), 'top-right');
+
+		// Desktop Electron grants the geolocation permission but has no location
+		// provider behind it, so requests hang until they time out
+		if (Platform.isMobileApp) {
+			this.map.addControl(new CustomGeolocateControl(), 'top-right');
+		}
 
 		// Add background switcher if multiple tile sets are available
 		if (this.plugin.settings.tileSets.length > 1) {
