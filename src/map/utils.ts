@@ -24,7 +24,7 @@ export function coordinateFromValue(value: Value | null): [number, number] | nul
 		}
 	}
 
-	if (lat && lng && verifyLatLng(lat, lng)) {
+	if (lat != null && lng != null && verifyLatLng(lat, lng)) {
 		return [lat, lng];
 	}
 
