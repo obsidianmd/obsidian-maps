@@ -1,6 +1,5 @@
 import {
 	BasesView,
-	BasesPropertyId,
 	debounce,
 	Menu,
 	Platform,
@@ -10,7 +9,7 @@ import {
 	NullValue,
 	ViewOption,
 } from 'obsidian';
-import { LngLatLike, Map, setRTLTextPlugin } from 'maplibre-gl';
+import { Map, setRTLTextPlugin } from 'maplibre-gl';
 import type ObsidianMapsPlugin from './main';
 import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './map/constants';
 import { CustomZoomControl } from './map/controls/zoom-control';
@@ -19,22 +18,9 @@ import { BackgroundSwitcherControl } from './map/controls/background-switcher';
 import { StyleManager } from './map/style';
 import { PopupManager } from './map/popup';
 import { MarkerManager } from './map/markers';
-import { hasOwnProperty, coordinateFromValue } from './map/utils';
+import { MapConfig } from './map/types';
+import { hasOwnProperty, coordinateFromValue, toLngLat, roundCoordinate, formatCoordinates } from './map/utils';
 import { rtlPluginCode } from './map/rtl-plugin-code';
-
-interface MapConfig {
-	coordinatesProp: BasesPropertyId | null;
-	markerIconProp: BasesPropertyId | null;
-	markerColorProp: BasesPropertyId | null;
-	mapHeight: number;
-	defaultZoom: number;
-	center: [number, number];
-	maxZoom: number;
-	minZoom: number;
-	mapTiles: string[];
-	mapTilesDark: string[];
-	currentTileSetId: string | null;
-}
 
 export const MapViewType = 'map';
 
@@ -48,7 +34,7 @@ export class MapView extends BasesView {
 	// Internal rendering data
 	private map: Map | null = null;
 	private mapConfig: MapConfig | null = null;
-	private pendingMapState: { center?: LngLatLike, zoom?: number } | null = null;
+	private pendingMapState: { center?: { lng: number, lat: number }, zoom?: number } | null = null;
 	private isFirstLoad = true;
 	private lastConfigSnapshot: string | null = null;
 	private lastEvaluatedCenter: [number, number] = DEFAULT_MAP_CENTER;
@@ -85,6 +71,12 @@ export class MapView extends BasesView {
 	onload(): void {
 		// Listen for theme changes to update map tiles
 		this.registerEvent(this.app.workspace.on('css-change', this.onThemeChange, this));
+
+		// Add context menu to map
+		this.registerDomEvent(this.mapEl, 'contextmenu', (evt) => {
+			evt.preventDefault();
+			this.showMapContextMenu(evt);
+		});
 	}
 
 	onunload() {
@@ -162,39 +154,21 @@ export class MapView extends BasesView {
 		this.mapConfig = this.loadConfig(currentTileSetId);
 
 		// Set initial map height based on context
-		const isEmbedded = this.isEmbedded();
-		if (isEmbedded) {
-			this.mapEl.style.height = this.mapConfig.mapHeight + 'px';
-		}
-		else {
-			// Let CSS handle the height for direct base file views
-			this.mapEl.style.height = '';
-		}
+		this.applyMapHeight();
 
 		// Get the map style (may involve fetching remote style JSON)
 		const mapStyle = await this.styleManager.getMapStyle(this.mapConfig.mapTiles, this.mapConfig.mapTilesDark);
 
 		// Determine initial position: prefer ephemeral state if available, otherwise use config
-		let initialCenter: [number, number] = [this.mapConfig.center[1], this.mapConfig.center[0]]; // MapLibre uses [lng, lat]
+		let initialCenter = toLngLat(this.mapConfig.center);
 		let initialZoom = this.mapConfig.defaultZoom;
 
 		// Capture if we are starting with a pending state restoration
 		const isRestoringState = this.pendingMapState !== null;
 
-		if (this.pendingMapState) {
-			if (this.pendingMapState.center) {
-				const c = this.pendingMapState.center;
-				// Handle LngLatLike (array or object)
-				if (Array.isArray(c)) {
-					initialCenter = [c[0], c[1]];
-				} else if (typeof c === 'object' && 'lng' in c && 'lat' in c) {
-					initialCenter = [c.lng, c.lat];
-				}
-			}
-			if (this.pendingMapState.zoom !== undefined && this.pendingMapState.zoom !== null) {
-				initialZoom = this.pendingMapState.zoom;
-			}
-		}
+		const pendingCenter = this.pendingMapState?.center;
+		if (pendingCenter) initialCenter = [pendingCenter.lng, pendingCenter.lat];
+		initialZoom = this.pendingMapState?.zoom ?? initialZoom;
 
 		// Initialize MapLibre GL JS map with configured tiles or default style
 		this.map = new Map({
@@ -249,7 +223,7 @@ export class MapView extends BasesView {
 
 			// Set center based on configuration
 			if (hasConfiguredCenter) {
-				this.map.setCenter([this.mapConfig.center[1], this.mapConfig.center[0]]); // MapLibre uses [lng, lat]
+				this.map.setCenter(toLngLat(this.mapConfig.center));
 			}
 			else {
 				const bounds = this.markerManager.getBounds();
@@ -273,12 +247,6 @@ export class MapView extends BasesView {
 		// Hide tooltip on the map element.
 		this.mapEl.querySelector('canvas')?.style
 			.setProperty('--no-tooltip', 'true');
-
-		// Add context menu to map
-		this.mapEl.addEventListener('contextmenu', (evt) => {
-			evt.preventDefault();
-			this.showMapContextMenu(evt);
-		});
 	}
 
 	private destroyMap(): void {
@@ -358,7 +326,7 @@ export class MapView extends BasesView {
 			const currentCenter = this.map.getCenter();
 			if (!currentCenter) return; // Map not fully initialized yet
 
-			const targetCenter: [number, number] = [this.mapConfig.center[1], this.mapConfig.center[0]]; // MapLibre uses [lng, lat]
+			const targetCenter = toLngLat(this.mapConfig.center);
 			const centerActuallyChanged = Math.abs(currentCenter.lng - targetCenter[0]) > 0.00001 ||
 				Math.abs(currentCenter.lat - targetCenter[1]) > 0.00001;
 			if (centerActuallyChanged) {
@@ -421,12 +389,7 @@ export class MapView extends BasesView {
 
 		// Update map height for embedded views if height changed
 		if (this.isFirstLoad || heightChanged) {
-			if (this.isEmbedded()) {
-				this.mapEl.style.height = this.mapConfig.mapHeight + 'px';
-			}
-			else {
-				this.mapEl.style.height = '';
-			}
+			this.applyMapHeight();
 			// Resize map after height changes
 			this.map.resize();
 		}
@@ -435,14 +398,14 @@ export class MapView extends BasesView {
 	isEmbedded(): boolean {
 		// Check if this map view is embedded in a markdown file rather than opened directly
 		// If the scrollEl has a parent with 'bases-embed' class, it's embedded
-		let element = this.scrollEl.parentElement;
-		while (element) {
-			if (element.hasClass('bases-embed') || element.hasClass('block-language-base')) {
-				return true;
-			}
-			element = element.parentElement;
-		}
-		return false;
+		return this.scrollEl.parentElement?.matchParent('.bases-embed, .block-language-base') != null;
+	}
+
+	/** Embedded views size to the configured height; direct views let CSS drive it. */
+	private applyMapHeight(): void {
+		this.mapEl.style.height = this.isEmbedded() && this.mapConfig
+			? this.mapConfig.mapHeight + 'px'
+			: '';
 	}
 
 	private loadConfig(currentTileSetId: string | null): MapConfig {
@@ -512,14 +475,11 @@ export class MapView extends BasesView {
 		};
 	}
 
-	private getNumericConfig(key: string, defaultValue: number, min?: number, max?: number): number {
+	private getNumericConfig(key: string, defaultValue: number, min: number, max: number): number {
 		const value = this.config.get(key);
 		if (value == null || typeof value !== 'number') return defaultValue;
 
-		let result = value;
-		if (min !== undefined) result = Math.max(min, result);
-		if (max !== undefined) result = Math.min(max, result);
-		return result;
+		return Math.min(max, Math.max(min, value));
 	}
 
 	private getArrayConfig(key: string): string[] {
@@ -540,32 +500,21 @@ export class MapView extends BasesView {
 	}
 
 	private getCenterFromConfig(): [number, number] {
-		let centerConfig: Value;
-		
+		let centerConfig: Value | null = null;
+
 		try {
 			centerConfig = this.config.getEvaluatedFormula(this, 'center');
-		} catch (error) {
+		} catch {
 			// Formula evaluation failed (e.g., this.file is null when no active file)
-			// Fall back to raw config value
-			const centerConfigStr = this.config.get('center');
-			if (String.isString(centerConfigStr)) {
-				centerConfig = new StringValue(centerConfigStr);
-			}
-			else {
-				return DEFAULT_MAP_CENTER;
-			}
 		}
 
-		// Support for legacy string format.
-		if (Value.equals(centerConfig, NullValue.value)) {
+		// Fall back to the raw config value, which also supports the legacy string format
+		if (!centerConfig || Value.equals(centerConfig, NullValue.value)) {
 			const centerConfigStr = this.config.get('center');
-			if (String.isString(centerConfigStr)) {
-				centerConfig = new StringValue(centerConfigStr);
-			}
-			else {
-				return DEFAULT_MAP_CENTER;
-			}
+			if (!String.isString(centerConfigStr)) return DEFAULT_MAP_CENTER;
+			centerConfig = new StringValue(centerConfigStr);
 		}
+
 		return coordinateFromValue(centerConfig) || DEFAULT_MAP_CENTER;
 	}
 
@@ -590,8 +539,8 @@ export class MapView extends BasesView {
 		// Get coordinates from the location of the right-click event, not the map center
 		const clickPoint: [number, number] = [evt.offsetX, evt.offsetY];
 		const clickedCoords = this.map.unproject(clickPoint);
-		const currentLat = Math.round(clickedCoords.lat * 100000) / 100000;
-		const currentLng = Math.round(clickedCoords.lng * 100000) / 100000;
+		const currentLat = roundCoordinate(clickedCoords.lat);
+		const currentLng = roundCoordinate(clickedCoords.lng);
 
 		const menu = Menu.forEvent(evt);
 		menu.addItem(item => item
@@ -617,8 +566,7 @@ export class MapView extends BasesView {
 			.setSection('action')
 			.setIcon('copy')
 			.onClick(() => {
-				const coordString = `${currentLat}, ${currentLng}`;
-				void navigator.clipboard.writeText(coordString);
+				void navigator.clipboard.writeText(formatCoordinates(currentLat, currentLng));
 			})
 		);
 
@@ -641,7 +589,7 @@ export class MapView extends BasesView {
 				this.config.set('center', coordListStr);
 
 				// 3. Immediately move the map for instant user feedback.
-				this.map?.setCenter([currentLng, currentLat]); // MapLibre uses [lng, lat]
+				this.map?.setCenter(toLngLat([currentLat, currentLng]));
 			})
 		);
 

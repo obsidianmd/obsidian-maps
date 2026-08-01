@@ -1,6 +1,14 @@
 import { App, BasesEntry, BasesPropertyId, ListValue, Value } from 'obsidian';
 import { Popup, Map } from 'maplibre-gl';
 
+/** Cap on how many properties a popup will consider rendering. */
+const MAX_POPUP_PROPERTIES = 20;
+
+interface PopupProperty {
+	prop: BasesPropertyId;
+	value: Value;
+}
+
 export class PopupManager {
 	private map: Map | null = null;
 	private sharedPopup: Popup | null = null;
@@ -22,17 +30,14 @@ export class PopupManager {
 		entry: BasesEntry,
 		coordinates: [number, number],
 		properties: BasesPropertyId[],
-		coordinatesProp: BasesPropertyId | null,
-		markerIconProp: BasesPropertyId | null,
-		markerColorProp: BasesPropertyId | null,
+		hiddenProps: BasesPropertyId[],
 		getDisplayName: (prop: BasesPropertyId) => string
 	): void {
 		if (!this.map) return;
 
 		// Only show popup if there are properties to display
-		if (!properties || properties.length === 0 || !this.hasAnyPropertyValues(entry, properties, coordinatesProp, markerIconProp, markerColorProp)) {
-			return;
-		}
+		const propertiesWithValues = this.collectDisplayProperties(entry, properties, hiddenProps);
+		if (propertiesWithValues.length === 0) return;
 
 		this.clearPopupHideTimeout();
 
@@ -60,7 +65,7 @@ export class PopupManager {
 
 		// Update popup content and position
 		const [lat, lng] = coordinates;
-		const popupContent = this.createPopupContent(entry, properties, coordinatesProp, markerIconProp, markerColorProp, getDisplayName);
+		const popupContent = this.createPopupContent(entry, propertiesWithValues, getDisplayName);
 		this.sharedPopup
 			.setDOMContent(popupContent)
 			.setLngLat([lng, lat])
@@ -98,22 +103,18 @@ export class PopupManager {
 		}
 	}
 
-	private createPopupContent(
+	/** Collects the renderable properties of an entry, skipping the marker-driven ones. */
+	private collectDisplayProperties(
 		entry: BasesEntry,
 		properties: BasesPropertyId[],
-		coordinatesProp: BasesPropertyId | null,
-		markerIconProp: BasesPropertyId | null,
-		markerColorProp: BasesPropertyId | null,
-		getDisplayName: (prop: BasesPropertyId) => string
-	): HTMLElement {
-		const containerEl = createDiv('bases-map-popup');
+		hiddenProps: BasesPropertyId[]
+	): PopupProperty[] {
+		if (!properties) return [];
 
-		// Get properties that have values
-		const propertiesSlice = properties.slice(0, 20); // Max 20 properties
-		const propertiesWithValues = [];
+		const propertiesWithValues: PopupProperty[] = [];
 
-		for (const prop of propertiesSlice) {
-			if (prop === coordinatesProp || prop === markerIconProp || prop === markerColorProp) continue; // Skip coordinates, marker icon, and marker color properties
+		for (const prop of properties.slice(0, MAX_POPUP_PROPERTIES)) {
+			if (hiddenProps.includes(prop)) continue;
 
 			try {
 				const value = entry.getValue(prop);
@@ -125,6 +126,16 @@ export class PopupManager {
 				// Skip properties that can't be rendered
 			}
 		}
+
+		return propertiesWithValues;
+	}
+
+	private createPopupContent(
+		entry: BasesEntry,
+		propertiesWithValues: PopupProperty[],
+		getDisplayName: (prop: BasesPropertyId) => string
+	): HTMLElement {
+		const containerEl = createDiv('bases-map-popup');
 
 		// Use first property as title (still acts as a link to the file)
 		if (propertiesWithValues.length > 0) {
@@ -172,32 +183,6 @@ export class PopupManager {
 		}
 
 		return true;
-	}
-
-	private hasAnyPropertyValues(
-		entry: BasesEntry,
-		properties: BasesPropertyId[],
-		coordinatesProp: BasesPropertyId | null,
-		markerIconProp: BasesPropertyId | null,
-		markerColorProp: BasesPropertyId | null
-	): boolean {
-		const propertiesSlice = properties.slice(0, 20); // Max 20 properties
-
-		for (const prop of propertiesSlice) {
-			if (prop === coordinatesProp || prop === markerIconProp || prop === markerColorProp) continue; // Skip coordinates, marker icon, and marker color properties
-
-			try {
-				const value = entry.getValue(prop);
-				if (value && this.hasNonEmptyValue(value)) {
-					return true;
-				}
-			}
-			catch {
-				// Skip properties that can't be rendered
-			}
-		}
-
-		return false;
 	}
 }
 

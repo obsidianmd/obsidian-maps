@@ -61,6 +61,28 @@ export function parseCoordinate(value: unknown): number | null {
 }
 
 /**
+ * Converts a [lat, lng] coordinate to the [lng, lat] order MapLibre expects
+ */
+export function toLngLat([lat, lng]: [number, number]): [number, number] {
+	return [lng, lat];
+}
+
+/**
+ * Rounds a coordinate to roughly one metre of precision
+ */
+export function roundCoordinate(value: number): number {
+	return Number(value.toFixed(5));
+}
+
+/**
+ * Formats a coordinate pair for display or the clipboard. Values are used as
+ * given, so callers echoing stored data keep its precision.
+ */
+export function formatCoordinates(lat: number, lng: number): string {
+	return `${lat}, ${lng}`;
+}
+
+/**
  * Options shared by every geolocation request. `maximumAge` lets a recent cached
  * fix satisfy a request, which keeps continuous tracking from pinning the GPS.
  */
