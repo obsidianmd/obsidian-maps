@@ -47,6 +47,16 @@ export class MarkerManager {
 		return this.bounds;
 	}
 
+	getWidestMarkerZoom(): number | undefined {
+		const validZoomLevels = this.markers
+			.map(marker => marker.zoom)
+			.filter((z): z is number => z !== undefined);
+
+		if (validZoomLevels.length === 0) return undefined;
+
+		return Math.min(...validZoomLevels);
+	}
+
 	clearLoadedIcons(): void {
 		this.loadedIcons.clear();
 	}
@@ -63,6 +73,7 @@ export class MarkerManager {
 			if (!entry) continue;
 
 			let coordinates: [number, number] | null = null;
+			let zoom: number | undefined = undefined;
 			try {
 				const value = entry.getValue(mapConfig.coordinatesProp);
 				coordinates = coordinateFromValue(value);
@@ -71,10 +82,19 @@ export class MarkerManager {
 				console.error(`Error extracting coordinates for ${entry.file.name}:`, error);
 			}
 
+			try {
+				const value = entry.getValue(mapConfig.zoomProp);
+				zoom = value !== undefined ? Number(value) : undefined;
+			}
+			catch (error) {
+				console.error(`Error extracting zoom for ${entry.file.name}:`, error);
+			}
+
 			if (coordinates) {
 				validMarkers.push({
 					entry,
 					coordinates,
+					zoom,
 				});
 			}
 		}
