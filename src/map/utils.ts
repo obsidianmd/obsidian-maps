@@ -1,4 +1,7 @@
 import { Value, NumberValue, StringValue, ListValue } from 'obsidian';
+import { OpenLocationCode } from 'open-location-code';
+
+const olc = new OpenLocationCode();
 
 /**
  * Converts a Value to coordinate tuple [lat, lng]
@@ -14,13 +17,25 @@ export function coordinateFromValue(value: Value | null): [number, number] | nul
 			lng = parseCoordinate(value.get(1));
 		}
 	}
-	// Handle string values (e.g., "34.1395597,-118.3870991" or "34.1395597, -118.3870991")
+	// Handle string values
+	// may be string coordinates  (e.g., "34.1395597,-118.3870991" or "34.1395597, -118.3870991")
+	// or Plus Code (e.g. "9C3XGVHC+XW")
 	else if (value instanceof StringValue) {
-		// Split by comma and handle various spacing
-		const parts = value.toString().trim().split(',');
-		if (parts.length >= 2) {
-			lat = parseCoordinate(parts[0].trim());
-			lng = parseCoordinate(parts[1].trim());
+		const str = value.toString().trim();
+
+		// Check for full Plus Code (e.g., "9C3XGVHC+XW")
+		if (olc.isFull(str)) {
+			const area = olc.decode(str);
+			lat = area.latitudeCenter;
+			lng = area.longitudeCenter;
+		}
+		// Fall back to comma-separated coordinates (e.g., "34.1395597, -118.3870991")
+		else {
+			const parts = str.split(',');
+			if (parts.length >= 2) {
+				lat = parseCoordinate(parts[0].trim());
+				lng = parseCoordinate(parts[1].trim());
+			}
 		}
 	}
 

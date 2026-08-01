@@ -3,10 +3,11 @@
 Generate test markdown files with valid coordinates for Obsidian Maps plugin testing.
 
 Usage:
-    python generate_test_files.py [count]
+    python generate_test_files.py [count] [pluscode_count]
 
 Arguments:
-    count: Number of files to generate (default: 100)
+    count:          Number of coordinate files to generate (default: 100)
+    pluscode_count:  Number of Plus Code files to generate (default: 20)
 """
 
 import os
@@ -145,18 +146,56 @@ coordinates:
         f.write(content)
 
 
-def generate_test_files(count=100, output_dir="generated_places"):
-    """Generate test markdown files with coordinates."""
+PLUS_CODE_PLACES = [
+    {"name": "British Library",       "plus_code": "9C3XGVJC+2W", "type": "[[Library]]"},
+    {"name": "Eiffel Tower",          "plus_code": "8FW4V75V+9R", "type": "[[Monument]]"},
+    {"name": "Statue of Liberty",     "plus_code": "87G7MXQ4+M6", "type": "[[Monument]]"},
+    {"name": "Taj Mahal",             "plus_code": "7JVW52GR+2R", "type": "[[Monument]]"},
+    {"name": "Colosseum",             "plus_code": "8FHJVFRR+3V", "type": "[[Monument]]"},
+    {"name": "Great Wall of China",   "plus_code": "8PGRCHJC+Q5", "type": "[[Monument]]"},
+    {"name": "Great Pyramid of Giza", "plus_code": "7GXHX4HM+MM", "type": "[[Monument]]"},
+    {"name": "Sydney Opera House",    "plus_code": "4RRH46V8+74", "type": "[[Theater]]"},
+    {"name": "Machu Picchu",          "plus_code": "57R9RFP4+Q2", "type": "[[Monument]]"},
+    {"name": "Burj Khalifa",          "plus_code": "7HQQ57WF+VQ", "type": "[[Building]]"},
+    {"name": "Christ the Redeemer",   "plus_code": "589R2QXQ+6R", "type": "[[Monument]]"},
+    {"name": "Big Ben",               "plus_code": "9C3XGV2G+75", "type": "[[Monument]]"},
+    {"name": "Golden Gate Bridge",    "plus_code": "849VRG9C+XM", "type": "[[Monument]]"},
+    {"name": "Acropolis of Athens",   "plus_code": "8G95XPCG+J7", "type": "[[Monument]]"},
+    {"name": "Petra",                 "plus_code": "8G2Q8CHV+CQ", "type": "[[Monument]]"},
+    {"name": "Angkor Wat",            "plus_code": "7P55CV78+2R", "type": "[[Temple]]"},
+    {"name": "Sagrada Familia",       "plus_code": "8FH4C53F+CQ", "type": "[[Cathedral]]"},
+    {"name": "Mount Everest",         "plus_code": "7MV8XWQG+62", "type": "[[Mountain]]"},
+    {"name": "Hollywood Sign",        "plus_code": "85634MMH+JC", "type": "[[Monument]]"},
+    {"name": "Forbidden City",        "plus_code": "8PFRW98W+GV", "type": "[[Palace]]"},
+    {"name": "Stonehenge",            "plus_code": "9C3W55HF+HG", "type": "[[Monument]]"},
+]
+
+
+def create_plus_code_file(directory, place):
+    """Create a markdown file using a Plus Code for location."""
+    content = f"""---
+category: "[[Places]]"
+type: "{place['type']}"
+location: "{place['plus_code']}"
+---
+"""
+    filepath = directory / f"{place['name']}.md"
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+
+def generate_test_files(count=100, pluscode_count=20, output_dir="generated_places"):
+    """Generate test markdown files with coordinates and Plus Code locations."""
     # Create output directory
     script_dir = Path(__file__).parent
     output_path = script_dir / output_dir
     output_path.mkdir(exist_ok=True)
-    
-    print(f"Generating {count} test files in {output_path}...")
-    
+
+    print(f"Generating {count} coordinate files in {output_path}...")
+
     # Keep track of generated names to avoid duplicates
     generated_names = set()
-    
+
     for i in range(count):
         # Generate unique place name
         attempt = 0
@@ -169,29 +208,40 @@ def generate_test_files(count=100, output_dir="generated_places"):
         else:
             # If we can't find a unique name, append a number
             place_name = f"{generate_random_place_name()} {i}"
-        
+
         # Generate coordinates and type
         coordinates = generate_coordinates()
         place_type = generate_place_type()
-        
+
         # Create filename
         filename = f"{place_name}.md"
-        
+
         # Create the file
         create_markdown_file(output_path, filename, coordinates, place_type)
-        
+
         # Print progress for large batches
         if (i + 1) % 1000 == 0:
             print(f"  Generated {i + 1} files...")
-    
-    print(f"✓ Successfully generated {count} files in {output_path}/")
+
+    print(f"✓ Successfully generated {count} coordinate files in {output_path}/")
+
+    # Generate Plus Code files
+    places = PLUS_CODE_PLACES[:pluscode_count]
+    print(f"Generating {len(places)} Plus Code file(s) in {output_path}...")
+
+    for place in places:
+        create_plus_code_file(output_path, place)
+
+    print(f"✓ Successfully generated {len(places)} Plus Code file(s) in {output_path}/")
+
     return output_path
 
 
 def main():
     """Main entry point."""
     count = 100  # Default
-    
+    pluscode_count = 20  # Default
+
     if len(sys.argv) > 1:
         try:
             count = int(sys.argv[1])
@@ -201,8 +251,18 @@ def main():
         except ValueError:
             print(f"Error: Invalid count '{sys.argv[1]}'. Must be an integer.")
             sys.exit(1)
-    
-    generate_test_files(count)
+
+    if len(sys.argv) > 2:
+        try:
+            pluscode_count = int(sys.argv[2])
+            if pluscode_count < 0:
+                print("Error: Plus code count must be a non-negative integer")
+                sys.exit(1)
+        except ValueError:
+            print(f"Error: Invalid pluscode_count '{sys.argv[2]}'. Must be an integer.")
+            sys.exit(1)
+
+    generate_test_files(count, pluscode_count)
 
 
 if __name__ == "__main__":
