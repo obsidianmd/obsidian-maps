@@ -1,4 +1,4 @@
-import { App, Modal, PluginSettingTab, Setting, setIcon, setTooltip } from 'obsidian';
+import { App, Modal, PluginSettingTab, Setting, SettingDefinitionItem } from 'obsidian';
 import ObsidianMapsPlugin from './main';
 
 export interface TileSet {
@@ -106,66 +106,55 @@ export class MapSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setHeading()
-			.setName('Backgrounds')
-			.addButton(button => button
-				.setButtonText('Add background')
-				.setCta()
-				.onClick(() => {
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [{
+			type: 'list',
+			heading: 'Backgrounds',
+			emptyState: 'Add background sets available to all maps.',
+			addItem: {
+				name: 'Add background',
+				action: () => {
 					new TileSetModal(this.app, null, async (tileSet) => {
 						this.plugin.settings.tileSets.push(tileSet);
-						await this.plugin.saveSettings();
-						this.display();
+						await this.saveAndRefresh();
 					}).open();
-				})
-			);
-
-		// Display existing tile sets as a list
-		const listContainer = containerEl.createDiv('map-tileset-list');
-		
-		this.plugin.settings.tileSets.forEach((tileSet, index) => {
-			this.displayTileSetItem(listContainer, tileSet, index);
-		});
-
-		if (this.plugin.settings.tileSets.length === 0) {
-			listContainer.createDiv({
-				cls: 'mobile-option-setting-item',
-				text: 'Add background sets available to all maps.'
-			});
-		}
+				},
+			},
+			onReorder: async (oldIndex, newIndex) => {
+				const tileSets = this.plugin.settings.tileSets;
+				tileSets.splice(newIndex, 0, ...tileSets.splice(oldIndex, 1));
+				await this.saveAndRefresh();
+			},
+			// Tile URLs can carry access tokens, so the row shows the name only
+			items: this.plugin.settings.tileSets.map((tileSet, index) => ({
+				name: tileSet.name || 'Untitled',
+				render: (setting: Setting) => {
+					setting
+						.addExtraButton(button => button
+							.setIcon('lucide-pen-line')
+							.setTooltip('Edit')
+							.onClick(() => {
+								new TileSetModal(this.app, { ...tileSet }, async (updatedTileSet) => {
+									this.plugin.settings.tileSets[index] = updatedTileSet;
+									await this.saveAndRefresh();
+								}).open();
+							}))
+						.addExtraButton(button => button
+							.setIcon('lucide-trash-2')
+							.setTooltip('Delete')
+							.onClick(async () => {
+								this.plugin.settings.tileSets.splice(index, 1);
+								await this.saveAndRefresh();
+							}));
+				},
+			})),
+		}];
 	}
 
-	private displayTileSetItem(containerEl: HTMLElement, tileSet: TileSet, index: number): void {
-		const itemEl = containerEl.createDiv('mobile-option-setting-item');
-
-		itemEl.createSpan({ cls: 'mobile-option-setting-item-name', text: tileSet.name || 'Untitled' });
-
-		itemEl.createDiv('clickable-icon', el => {
-			setIcon(el, 'pencil');
-			setTooltip(el, 'Edit');
-			el.addEventListener('click', () => {
-				new TileSetModal(this.app, { ...tileSet }, async (updatedTileSet) => {
-					this.plugin.settings.tileSets[index] = updatedTileSet;
-					await this.plugin.saveSettings();
-					this.display();
-				}).open();
-			});
-		});
-
-		itemEl.createDiv('clickable-icon', el => {
-			setIcon(el, 'trash-2');
-			setTooltip(el, 'Delete');
-			el.addEventListener('click', async () => {
-				this.plugin.settings.tileSets.splice(index, 1);
-				await this.plugin.saveSettings();
-				this.display();
-			});
-		});
+	/** Adding, removing or renaming a tile set changes the definitions themselves. */
+	private async saveAndRefresh(): Promise<void> {
+		await this.plugin.saveSettings();
+		this.update();
 	}
 }
 

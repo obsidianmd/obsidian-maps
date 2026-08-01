@@ -5,11 +5,6 @@ body {
 	--bases-map-blend-mode: normal;
 }
 
-/* Settings styles */
-.map-tileset-list {
-	margin: 1em 0;
-}
-
 .bases-view[data-view-type="map"] {
 	--bases-embed-border-width: 0px;
 	--bases-view-padding: 0;

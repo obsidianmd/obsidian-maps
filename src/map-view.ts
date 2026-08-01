@@ -7,7 +7,7 @@ import {
 	Value,
 	StringValue,
 	NullValue,
-	ViewOption,
+	BasesAllOptions,
 } from 'obsidian';
 import { Map, setRTLTextPlugin } from 'maplibre-gl';
 import type ObsidianMapsPlugin from './main';
@@ -633,7 +633,7 @@ export class MapView extends BasesView {
 		};
 	}
 
-	static getViewOptions(): ViewOption[] {
+	static getViewOptions(): BasesAllOptions[] {
 		return [
 			{
 				displayName: 'Embedded height',
