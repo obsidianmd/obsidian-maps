@@ -1,7 +1,7 @@
 import { App, BasesEntry, BasesPropertyId, Keymap, Menu, setIcon } from 'obsidian';
 import { Map, LngLatBounds, GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
 import { MapMarker, MapMarkerProperties } from './types';
-import { coordinateFromValue } from './utils';
+import { parseLatLng } from './utils';
 import { PopupManager } from './popup';
 
 export class MarkerManager {
@@ -65,7 +65,7 @@ export class MarkerManager {
 			let coordinates: [number, number] | null = null;
 			try {
 				const value = entry.getValue(mapConfig.coordinatesProp);
-				coordinates = coordinateFromValue(value);
+				coordinates = parseLatLng(value);
 			}
 			catch (error) {
 				console.error(`Error extracting coordinates for ${entry.file.name}:`, error);
