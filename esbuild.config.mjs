@@ -3,7 +3,7 @@ import process from "process";
 import fs from "fs";
 import path from "path";
 import { execFile, execFileSync } from "child_process";
-import builtins from "builtin-modules";
+import { builtinModules as builtins } from "node:module";
 
 const banner =
 `/*

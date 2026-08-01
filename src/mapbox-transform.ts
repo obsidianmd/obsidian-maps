@@ -13,15 +13,13 @@ export function isMapboxURL(url: string): boolean {
 export function transformMapboxStyle(style: StyleSpecification, accessToken: string): StyleSpecification {
 	// Remove unsupported projection.name property
 	if (style.projection && 'name' in style.projection) {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		delete (style.projection as any).name;
+		delete (style.projection as { name?: unknown }).name;
 	}
 
-	// Transform sources
+	// Transform sources. Only some source types carry a url, so narrow to that.
 	if (style.sources) {
 		for (const sourceId in style.sources) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const source = style.sources[sourceId] as any;
+			const source = style.sources[sourceId] as { url?: string };
 			if (source.url && isMapboxURL(source.url)) {
 				source.url = transformMapboxUrl(source.url, 'Source', accessToken) ?? source.url;
 			}

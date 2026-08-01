@@ -24,6 +24,17 @@ import { rtlPluginCode } from './map/rtl-plugin-code';
 
 export const MapViewType = 'map';
 
+/** Raw config values watched for changes. Values stay unknown; only equality matters. */
+interface ConfigSnapshot {
+	center: unknown;
+	defaultZoom: unknown;
+	minZoom: unknown;
+	maxZoom: unknown;
+	mapHeight: unknown;
+	mapTiles: unknown;
+	mapTilesDark: unknown;
+}
+
 export class MapView extends BasesView {
 	type = MapViewType;
 	scrollEl: HTMLElement;
@@ -36,7 +47,7 @@ export class MapView extends BasesView {
 	private mapConfig: MapConfig | null = null;
 	private pendingMapState: { center?: { lng: number, lat: number }, zoom?: number } | null = null;
 	private isFirstLoad = true;
-	private lastConfigSnapshot: string | null = null;
+	private lastConfigSnapshot: ConfigSnapshot | null = null;
 	private lastEvaluatedCenter: [number, number] | null = null;
 
 	// Managers
@@ -110,7 +121,7 @@ export class MapView extends BasesView {
 		this.markerManager.clearLoadedIcons();
 
 		// Re-add markers after style change since setStyle removes all runtime layers
-		this.map.once('styledata', () => {
+		void this.map.once('styledata', () => {
 			void this.markerManager.updateMarkers(this.data);
 		});
 	}
@@ -142,7 +153,7 @@ export class MapView extends BasesView {
 				const blob = new Blob([rtlPluginCode], { type: 'application/javascript' });
 				const blobURL = URL.createObjectURL(blob);
 				// Set lazy loading to false - plugin is initialized since code is already bundled
-				setRTLTextPlugin(blobURL, false);
+				void setRTLTextPlugin(blobURL, false);
 				MapView.rtlPluginInitialized = true;
 			} catch (error) {
 				console.warn('Failed to initialize RTL text plugin:', error);
@@ -202,7 +213,7 @@ export class MapView extends BasesView {
 					new BackgroundSwitcherControl(
 						this.plugin.settings.tileSets,
 						currentId,
-						(tileSetId) => this.switchToTileSet(tileSetId)
+						(tileSetId) => void this.switchToTileSet(tileSetId)
 					),
 					'top-right'
 				);
@@ -246,8 +257,7 @@ export class MapView extends BasesView {
 		});
 
 		// Hide tooltip on the map element.
-		this.mapEl.querySelector('canvas')?.style
-			.setProperty('--no-tooltip', 'true');
+		this.mapEl.querySelector('canvas')?.setCssProps({ '--no-tooltip': 'true' });
 	}
 
 	private destroyMap(): void {
@@ -263,7 +273,7 @@ export class MapView extends BasesView {
 		this.containerEl.removeClass('is-loading');
 
 		const configSnapshot = this.getConfigSnapshot();
-		const configChanged = this.lastConfigSnapshot !== configSnapshot;
+		const configChanged = JSON.stringify(this.lastConfigSnapshot) !== JSON.stringify(configSnapshot);
 
 		const currentTileSetId = this.mapConfig?.currentTileSetId || null;
 		this.mapConfig = this.loadConfig(currentTileSetId);
@@ -340,12 +350,8 @@ export class MapView extends BasesView {
 		}
 	}
 
-	private async applyConfigToMap(oldSnapshot: string | null, newSnapshot: string): Promise<void> {
+	private async applyConfigToMap(oldConfig: ConfigSnapshot | null, newConfig: ConfigSnapshot): Promise<void> {
 		if (!this.map || !this.mapConfig) return;
-
-		// Parse snapshots to detect specific changes
-		const oldConfig = oldSnapshot ? JSON.parse(oldSnapshot) : null;
-		const newConfig = JSON.parse(newSnapshot);
 
 		// Detect what changed
 		const centerConfigChanged = oldConfig?.center !== newConfig.center;
@@ -493,7 +499,7 @@ export class MapView extends BasesView {
 
 		// Handle array values
 		if (Array.isArray(value)) {
-			return value.filter(item => typeof item === 'string' && item.trim().length > 0);
+			return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
 		}
 
 		// Handle single string value
@@ -524,9 +530,9 @@ export class MapView extends BasesView {
 		return coordinateFromValue(centerConfig);
 	}
 
-	private getConfigSnapshot(): string {
+	private getConfigSnapshot(): ConfigSnapshot {
 		// Create a snapshot of config values that affect map display
-		return JSON.stringify({
+		return {
 			center: this.config.get('center'),
 			defaultZoom: this.config.get('defaultZoom'),
 			minZoom: this.config.get('minZoom'),
@@ -534,7 +540,7 @@ export class MapView extends BasesView {
 			mapHeight: this.config.get('mapHeight'),
 			mapTiles: this.config.get('mapTiles'),
 			mapTilesDark: this.config.get('mapTilesDark'),
-		});
+		};
 	}
 
 	private showMapContextMenu(evt: MouseEvent): void {
@@ -554,7 +560,7 @@ export class MapView extends BasesView {
 			.setSection('action')
 			.setIcon('square-pen')
 			.onClick(() => {
-				void this.createFileForView('', (frontmatter) => {
+				void this.createFileForView('', (frontmatter: Record<string, unknown>) => {
 					// Pre-fill coordinates if a coordinates property is configured
 					if (this.mapConfig?.coordinatesProp) {
 						// Remove 'note.' prefix if present

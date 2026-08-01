@@ -9,7 +9,7 @@ export class CustomZoomControl implements IControl {
 	}
 
 	onAdd(map: Map): HTMLElement {
-		const zoomInButton = this.containerEl.createEl('div', {
+		const zoomInButton = this.containerEl.createDiv({
 			cls: 'maplibregl-ctrl-zoom-in canvas-control-item',
 			attr: { 'aria-label': 'Zoom in' }
 		});
@@ -19,7 +19,7 @@ export class CustomZoomControl implements IControl {
 			map.zoomIn();
 		});
 
-		const zoomOutButton = this.containerEl.createEl('div', {
+		const zoomOutButton = this.containerEl.createDiv({
 			cls: 'maplibregl-ctrl-zoom-out canvas-control-item',
 			attr: { 'aria-label': 'Zoom out' }
 		});

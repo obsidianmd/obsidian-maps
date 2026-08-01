@@ -20,7 +20,7 @@ export class BackgroundSwitcherControl implements IControl {
 	}
 
 	onAdd(): HTMLElement {
-		const button = this.containerEl.createEl('div', {
+		const button = this.containerEl.createDiv({
 			cls: 'canvas-control-item',
 			attr: { 'aria-label': 'Switch background' }
 		});

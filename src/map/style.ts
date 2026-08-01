@@ -1,4 +1,4 @@
-import { App } from 'obsidian';
+import { App, requestUrl } from 'obsidian';
 import { StyleSpecification } from 'maplibre-gl';
 import { transformMapboxStyle } from '../mapbox-transform';
 
@@ -29,22 +29,21 @@ export class StyleManager {
 		// Fetch style JSON for any style URL (default or custom) to avoid CORS issues
 		if (styleUrl) {
 			try {
-				const response = await fetch(styleUrl);
-				if (response.ok) {
-					const styleJson = await response.json();
+				const response = await requestUrl({ url: styleUrl, throw: false });
+				if (response.status >= 200 && response.status < 300) {
+					const styleJson = response.json as StyleSpecification;
 					// Extract access token from URL for Mapbox styles
 					const accessTokenMatch = styleUrl.match(/access_token=([^&]+)/);
 					const accessToken = accessTokenMatch ? accessTokenMatch[1] : '';
 					// Transform mapbox:// protocol URLs to HTTPS URLs if needed
-					const transformedStyle = accessToken
+					return accessToken
 						? transformMapboxStyle(styleJson, accessToken)
 						: styleJson;
-					return transformedStyle as StyleSpecification;
 				}
 			} catch (error) {
 				console.warn('Failed to fetch style JSON, falling back to URL:', error);
 			}
-			// If fetch fails, fall back to returning the URL directly
+			// If the request fails, fall back to returning the URL directly
 			return styleUrl;
 		}
 

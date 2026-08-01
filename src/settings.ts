@@ -42,7 +42,7 @@ class TileSetModal extends Modal {
 			.setName('Name')
 			.setDesc('A name for this background.')
 			.addText(text => text
-				.setPlaceholder('e.g. Terrain, Satellite')
+				.setPlaceholder('e.g. Terrain, satellite')
 				.setValue(this.tileSet.name)
 				.onChange(value => {
 					this.tileSet.name = value;
@@ -114,16 +114,16 @@ export class MapSettingTab extends PluginSettingTab {
 			addItem: {
 				name: 'Add background',
 				action: () => {
-					new TileSetModal(this.app, null, async (tileSet) => {
+					new TileSetModal(this.app, null, (tileSet) => {
 						this.plugin.settings.tileSets.push(tileSet);
-						await this.saveAndRefresh();
+						void this.saveAndRefresh();
 					}).open();
 				},
 			},
-			onReorder: async (oldIndex, newIndex) => {
+			onReorder: (oldIndex, newIndex) => {
 				const tileSets = this.plugin.settings.tileSets;
 				tileSets.splice(newIndex, 0, ...tileSets.splice(oldIndex, 1));
-				await this.saveAndRefresh();
+				void this.saveAndRefresh();
 			},
 			// Tile URLs can carry access tokens, so the row shows the name only
 			items: this.plugin.settings.tileSets.map((tileSet, index) => ({
@@ -134,17 +134,17 @@ export class MapSettingTab extends PluginSettingTab {
 							.setIcon('lucide-pen-line')
 							.setTooltip('Edit')
 							.onClick(() => {
-								new TileSetModal(this.app, { ...tileSet }, async (updatedTileSet) => {
+								new TileSetModal(this.app, { ...tileSet }, (updatedTileSet) => {
 									this.plugin.settings.tileSets[index] = updatedTileSet;
-									await this.saveAndRefresh();
+									void this.saveAndRefresh();
 								}).open();
 							}))
 						.addExtraButton(button => button
 							.setIcon('lucide-trash-2')
 							.setTooltip('Delete')
-							.onClick(async () => {
+							.onClick(() => {
 								this.plugin.settings.tileSets.splice(index, 1);
-								await this.saveAndRefresh();
+								void this.saveAndRefresh();
 							}));
 				},
 			})),

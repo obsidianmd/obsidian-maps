@@ -34,6 +34,10 @@ body {
 
 	canvas {
 		mix-blend-mode: var(--bases-map-blend-mode);
+
+		&.is-over-marker {
+			cursor: pointer;
+		}
 	}
 
 	&.is-loading {
@@ -45,6 +49,11 @@ body {
 			color: var(--text-muted);
 		}
 	}
+}
+
+/* Offscreen probe used to resolve CSS colour variables to concrete values */
+.bases-map-color-probe {
+	display: none;
 }
 
 .bases-map-popup {

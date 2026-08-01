@@ -1,5 +1,6 @@
 import { App, BasesEntry, BasesPropertyId, Keymap, Menu, setIcon } from 'obsidian';
 import { Map as MapLibreMap, LngLatBounds, GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
+import type { Feature } from 'geojson';
 import { MapConfig, MapMarker, MapMarkerProperties } from './types';
 import { coordinateFromValue, formatCoordinates, toLngLat } from './utils';
 import { PopupManager } from './popup';
@@ -106,7 +107,7 @@ export class MarkerManager {
 		const features = this.createGeoJSONFeatures(validMarkers);
 
 		// Update or create the markers source
-		const source = this.map.getSource('markers') as GeoJSONSource | undefined;
+		const source = this.map.getSource<GeoJSONSource>('markers');
 		if (source) {
 			source.setData({
 				type: 'FeatureCollection',
@@ -206,11 +207,9 @@ export class MarkerManager {
 		const cached = this.resolvedColors.get(color);
 		if (cached !== undefined) return cached;
 
-		// Create a temporary element to resolve CSS variables
-		const tempEl = document.createElement('div');
-		tempEl.style.color = color;
-		tempEl.style.display = 'none';
-		document.body.appendChild(tempEl);
+		// Create a temporary hidden element to resolve CSS variables
+		const tempEl = document.body.createDiv('bases-map-color-probe');
+		tempEl.setCssStyles({ color });
 
 		// Get the computed color value
 		const computedColor = getComputedStyle(tempEl).color;
@@ -230,7 +229,7 @@ export class MarkerManager {
 		// Create a high-resolution canvas for crisp rendering on retina displays
 		const scale = 4; // 4x resolution for crisp display
 		const size = 48 * scale; // High-res canvas
-		const canvas = document.createElement('canvas');
+		const canvas = createEl('canvas');
 		canvas.width = size;
 		canvas.height = size;
 		const ctx = canvas.getContext('2d');
@@ -314,16 +313,16 @@ export class MarkerManager {
 					URL.revokeObjectURL(url);
 					resolve(img);
 				};
-				img.onerror = (error) => {
+				img.onerror = () => {
 					URL.revokeObjectURL(url);
-					reject(error);
+					reject(new Error('Failed to decode composite marker image'));
 				};
 				img.src = url;
 			});
 		});
 	}
 
-	private createGeoJSONFeatures(markers: MapMarker[]): GeoJSON.Feature[] {
+	private createGeoJSONFeatures(markers: MapMarker[]): Feature[] {
 		return markers.map((markerData, index) => {
 			const properties: MapMarkerProperties = {
 				entryIndex: index,
@@ -369,8 +368,9 @@ export class MarkerManager {
 
 	/** Resolves the marker a layer event refers to, or null if it hit nothing known. */
 	private markerFromEvent(e: MapLayerMouseEvent): MapMarker | null {
-		const entryIndex = e.features?.[0]?.properties?.entryIndex;
-		if (entryIndex === undefined) return null;
+		// GeoJSON feature properties are untyped, so confirm the index really is one
+		const entryIndex: unknown = e.features?.[0]?.properties?.entryIndex;
+		if (typeof entryIndex !== 'number') return null;
 		return this.markers[entryIndex] ?? null;
 	}
 
@@ -382,11 +382,11 @@ export class MarkerManager {
 
 		// Change cursor on hover
 		this.map.on('mouseenter', 'marker-pins', () => {
-			if (this.map) this.map.getCanvas().style.cursor = 'pointer';
+			this.map?.getCanvas().addClass('is-over-marker');
 		});
 
 		this.map.on('mouseleave', 'marker-pins', () => {
-			if (this.map) this.map.getCanvas().style.cursor = '';
+			this.map?.getCanvas().removeClass('is-over-marker');
 		});
 
 		// Handle hover to show popup
