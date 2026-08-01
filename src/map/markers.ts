@@ -5,17 +5,17 @@ import { coordinateFromValue } from './utils';
 import { PopupManager } from './popup';
 
 export class MarkerManager {
-	private map: Map | null = null;
-	private app: App;
-	private mapEl: HTMLElement;
+	protected map: Map | null = null;
+	protected app: App;
+	protected mapEl: HTMLElement;
 	private markers: MapMarker[] = [];
-	private bounds: LngLatBounds | null = null;
+	protected bounds: LngLatBounds | null = null;
 	private loadedIcons: Set<string> = new Set();
-	private popupManager: PopupManager;
-	private onOpenFile: (path: string, newLeaf: boolean) => void;
-	private getData: () => any;
-	private getMapConfig: () => any;
-	private getDisplayName: (prop: BasesPropertyId) => string;
+	protected popupManager: PopupManager;
+	protected onOpenFile: (path: string, newLeaf: boolean) => void;
+	protected getData: () => any;
+	protected getMapConfig: () => any;
+	protected getDisplayName: (prop: BasesPropertyId) => string;
 
 	constructor(
 		app: App,
@@ -162,45 +162,7 @@ export class MarkerManager {
 		}
 	}
 
-	private async loadCustomIcons(markers: MapMarker[]): Promise<void> {
-		if (!this.map) return;
-
-		// Collect all unique icon+color combinations that need to be loaded
-		const compositeImagesToLoad: Array<{ icon: string | null; color: string }> = [];
-		const uniqueKeys = new Set<string>();
-
-		for (const markerData of markers) {
-			const icon = this.getCustomIcon(markerData.entry);
-			const color = this.getCustomColor(markerData.entry) || 'var(--bases-map-marker-background)';
-			const compositeKey = this.getCompositeImageKey(icon, color);
-
-			if (!this.loadedIcons.has(compositeKey)) {
-				if (!uniqueKeys.has(compositeKey)) {
-					compositeImagesToLoad.push({ icon, color });
-					uniqueKeys.add(compositeKey);
-				}
-			}
-		}
-
-		// Create composite images for each unique icon+color combination
-		for (const { icon, color } of compositeImagesToLoad) {
-			try {
-				const compositeKey = this.getCompositeImageKey(icon, color);
-				const img = await this.createCompositeMarkerImage(icon, color);
-
-				if (this.map) {
-					// Force update of the image on theme change
-					if (this.map.hasImage(compositeKey)) {
-						this.map.removeImage(compositeKey);
-					}
-					this.map.addImage(compositeKey, img);
-					this.loadedIcons.add(compositeKey);
-				}
-			} catch (error) {
-				console.warn(`Failed to create composite marker for icon ${icon}:`, error);
-			}
-		}
-	}
+	
 
 	private getCompositeImageKey(icon: string | null, color: string): string {
 		return `marker-${icon || 'dot'}-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
@@ -393,6 +355,8 @@ export class MarkerManager {
 						mapConfig.coordinatesProp,
 						mapConfig.markerIconProp,
 						mapConfig.markerColorProp,
+						mapConfig.gpxProp,
+						mapConfig.gpxColorProp,
 						this.getDisplayName
 					);
 				}

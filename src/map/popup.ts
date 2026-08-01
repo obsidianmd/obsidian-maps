@@ -25,12 +25,14 @@ export class PopupManager {
 		coordinatesProp: BasesPropertyId | null,
 		markerIconProp: BasesPropertyId | null,
 		markerColorProp: BasesPropertyId | null,
+		gpxProp: BasesPropertyId | null,
+		gpxColorProp: BasesPropertyId | null,
 		getDisplayName: (prop: BasesPropertyId) => string
 	): void {
 		if (!this.map) return;
 
-		// Only show popup if there are properties to display
-		if (!properties || properties.length === 0 || !this.hasAnyPropertyValues(entry, properties, coordinatesProp, markerIconProp, markerColorProp)) {
+		// Only show popup if there are properties to display or there is an entry to preview
+		if (!properties || properties.length === 0) {
 			return;
 		}
 
@@ -60,7 +62,7 @@ export class PopupManager {
 
 		// Update popup content and position
 		const [lat, lng] = coordinates;
-		const popupContent = this.createPopupContent(entry, properties, coordinatesProp, markerIconProp, markerColorProp, getDisplayName);
+		const popupContent = this.createPopupContent(entry, properties, coordinatesProp, markerIconProp, markerColorProp, gpxProp, getDisplayName);
 		this.sharedPopup
 			.setDOMContent(popupContent)
 			.setLngLat([lng, lat])
@@ -104,6 +106,7 @@ export class PopupManager {
 		coordinatesProp: BasesPropertyId | null,
 		markerIconProp: BasesPropertyId | null,
 		markerColorProp: BasesPropertyId | null,
+		gpxProp: BasesPropertyId | null,
 		getDisplayName: (prop: BasesPropertyId) => string
 	): HTMLElement {
 		const containerEl = createDiv('bases-map-popup');
@@ -113,7 +116,7 @@ export class PopupManager {
 		const propertiesWithValues = [];
 
 		for (const prop of propertiesSlice) {
-			if (prop === coordinatesProp || prop === markerIconProp || prop === markerColorProp) continue; // Skip coordinates, marker icon, and marker color properties
+			if (prop === coordinatesProp || prop === markerIconProp || prop === markerColorProp || prop === gpxProp) continue; // Skip coordinates, marker icon, marker color, and GPX file properties
 
 			try {
 				const value = entry.getValue(prop);
@@ -179,12 +182,13 @@ export class PopupManager {
 		properties: BasesPropertyId[],
 		coordinatesProp: BasesPropertyId | null,
 		markerIconProp: BasesPropertyId | null,
-		markerColorProp: BasesPropertyId | null
+		markerColorProp: BasesPropertyId | null,
+		gpxProp: BasesPropertyId | null
 	): boolean {
 		const propertiesSlice = properties.slice(0, 20); // Max 20 properties
 
 		for (const prop of propertiesSlice) {
-			if (prop === coordinatesProp || prop === markerIconProp || prop === markerColorProp) continue; // Skip coordinates, marker icon, and marker color properties
+			if (prop === coordinatesProp || prop === markerIconProp || prop === markerColorProp || prop === gpxProp) continue; // Skip coordinates, marker icon, marker color, and GPX file properties
 
 			try {
 				const value = entry.getValue(prop);
@@ -197,7 +201,19 @@ export class PopupManager {
 			}
 		}
 
-		return false;
+		if (gpxProp) {
+			try {
+				const gpxValue = entry.getValue(gpxProp);
+				if (gpxValue && this.hasNonEmptyValue(gpxValue)) {
+					return true;
+				}
+			} catch {
+				// Ignore invalid GPX property values
+			}
+		}
+
+		// Fallback to file preview if no renderable properties exist
+		return !!entry.file?.path;
 	}
 }
 
