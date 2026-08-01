@@ -13,7 +13,7 @@ export default class ObsidianMapsPlugin extends Plugin {
 			name: 'Map',
 			icon: 'lucide-map',
 			factory: (controller, containerEl) => new MapView(controller, containerEl, this),
-			options: MapView.getViewOptions,
+			options: () => MapView.getViewOptions(),
 		});
 
 		// Only registered on mobile, since desktop has no location provider
@@ -31,7 +31,8 @@ export default class ObsidianMapsPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const data = await this.loadData() as Partial<MapSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 	}
 
 	async saveSettings() {
@@ -49,21 +50,14 @@ export default class ObsidianMapsPlugin extends Plugin {
 		const progressNotice = new Notice('Getting your location…', 0);
 
 		navigator.geolocation.getCurrentPosition(
-			async (position) => {
+			(position) => {
 				progressNotice.hide();
 
 				// Five decimal places is roughly one metre of precision
 				const lat = Number(position.coords.latitude.toFixed(5));
 				const lng = Number(position.coords.longitude.toFixed(5));
-				const coordString = `[${lat}, ${lng}]`;
 
-				try {
-					await navigator.clipboard.writeText(coordString);
-					new Notice(`Location copied: ${coordString}`);
-				} catch (error) {
-					console.error('Failed to copy to clipboard:', error);
-					new Notice('Failed to copy to clipboard');
-				}
+				void this.copyToClipboard(`[${lat}, ${lng}]`);
 			},
 			(error) => {
 				progressNotice.hide();
@@ -72,5 +66,15 @@ export default class ObsidianMapsPlugin extends Plugin {
 			},
 			GEOLOCATION_OPTIONS
 		);
+	}
+
+	private async copyToClipboard(coordString: string): Promise<void> {
+		try {
+			await navigator.clipboard.writeText(coordString);
+			new Notice(`Location copied: ${coordString}`);
+		} catch (error) {
+			console.error('Failed to copy to clipboard:', error);
+			new Notice('Failed to copy to clipboard');
+		}
 	}
 }

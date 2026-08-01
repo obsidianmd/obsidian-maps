@@ -28,7 +28,7 @@ export class CustomGeolocateControl implements IControl {
 		this.map = map;
 
 		// Create the locate button
-		this.locateButton = this.containerEl.createEl('div', {
+		this.locateButton = this.containerEl.createDiv({
 			cls: 'maplibregl-ctrl-geolocate canvas-control-item',
 			attr: { 'aria-label': 'Locate user' }
 		});
