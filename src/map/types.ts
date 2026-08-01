@@ -7,7 +7,8 @@ export interface MapConfig {
 	markerColorProp: BasesPropertyId | null;
 	mapHeight: number;
 	defaultZoom: number;
-	center: [number, number];
+	/** null when no center is configured, which is distinct from a center of [0, 0]. */
+	center: [number, number] | null;
 	maxZoom: number;
 	minZoom: number;
 	mapTiles: string[];

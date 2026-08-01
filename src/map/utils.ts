@@ -68,6 +68,14 @@ export function toLngLat([lat, lng]: [number, number]): [number, number] {
 }
 
 /**
+ * Compares two coordinates, treating null (no coordinate) as its own value
+ */
+export function sameCoordinates(a: [number, number] | null, b: [number, number] | null): boolean {
+	if (!a || !b) return a === b;
+	return a[0] === b[0] && a[1] === b[1];
+}
+
+/**
  * Rounds a coordinate to roughly one metre of precision
  */
 export function roundCoordinate(value: number): number {

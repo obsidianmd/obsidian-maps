@@ -19,7 +19,7 @@ import { StyleManager } from './map/style';
 import { PopupManager } from './map/popup';
 import { MarkerManager } from './map/markers';
 import { MapConfig } from './map/types';
-import { hasOwnProperty, coordinateFromValue, toLngLat, roundCoordinate, formatCoordinates } from './map/utils';
+import { hasOwnProperty, coordinateFromValue, toLngLat, roundCoordinate, formatCoordinates, sameCoordinates } from './map/utils';
 import { rtlPluginCode } from './map/rtl-plugin-code';
 
 export const MapViewType = 'map';
@@ -37,7 +37,7 @@ export class MapView extends BasesView {
 	private pendingMapState: { center?: { lng: number, lat: number }, zoom?: number } | null = null;
 	private isFirstLoad = true;
 	private lastConfigSnapshot: string | null = null;
-	private lastEvaluatedCenter: [number, number] = DEFAULT_MAP_CENTER;
+	private lastEvaluatedCenter: [number, number] | null = null;
 
 	// Managers
 	private styleManager: StyleManager;
@@ -159,8 +159,10 @@ export class MapView extends BasesView {
 		// Get the map style (may involve fetching remote style JSON)
 		const mapStyle = await this.styleManager.getMapStyle(this.mapConfig.mapTiles, this.mapConfig.mapTilesDark);
 
-		// Determine initial position: prefer ephemeral state if available, otherwise use config
-		let initialCenter = toLngLat(this.mapConfig.center);
+		// Determine initial position: prefer ephemeral state if available, otherwise use config.
+		// An unconfigured center starts at the default and is corrected to the marker
+		// bounds once the style has loaded.
+		let initialCenter = toLngLat(this.mapConfig.center ?? DEFAULT_MAP_CENTER);
 		let initialZoom = this.mapConfig.defaultZoom;
 
 		// Capture if we are starting with a pending state restoration
@@ -218,12 +220,11 @@ export class MapView extends BasesView {
 			// If we were restoring state, do not reset to defaults
 			if (isRestoringState || this.pendingMapState) return;
 
-			const hasConfiguredCenter = this.mapConfig.center[0] !== 0 || this.mapConfig.center[1] !== 0;
-			const hasConfiguredZoom = this.config.get('defaultZoom') && Number.isNumber(this.config.get('defaultZoom'));
+			const configuredCenter = this.mapConfig.center;
 
 			// Set center based on configuration
-			if (hasConfiguredCenter) {
-				this.map.setCenter(toLngLat(this.mapConfig.center));
+			if (configuredCenter) {
+				this.map.setCenter(toLngLat(configuredCenter));
 			}
 			else {
 				const bounds = this.markerManager.getBounds();
@@ -233,7 +234,7 @@ export class MapView extends BasesView {
 			}
 
 			// Set zoom based on configuration
-			if (hasConfiguredZoom) {
+			if (this.hasConfiguredZoom()) {
 				this.map.setZoom(this.mapConfig.defaultZoom); // Use configured zoom
 			}
 			else {
@@ -268,8 +269,7 @@ export class MapView extends BasesView {
 		this.mapConfig = this.loadConfig(currentTileSetId);
 
 		// Check if the evaluated center coordinates have changed
-		const centerChanged = this.mapConfig.center[0] !== this.lastEvaluatedCenter[0] ||
-			this.mapConfig.center[1] !== this.lastEvaluatedCenter[1];
+		const centerChanged = !sameCoordinates(this.mapConfig.center, this.lastEvaluatedCenter);
 
 		void this.initializeMap().then(async () => {
 			// Apply config to map on first load or when config changes
@@ -303,16 +303,21 @@ export class MapView extends BasesView {
 
 			// Track state for next comparison
 			if (this.mapConfig) {
-				this.lastEvaluatedCenter = [this.mapConfig.center[0], this.mapConfig.center[1]];
+				const center = this.mapConfig.center;
+				this.lastEvaluatedCenter = center && [center[0], center[1]];
 			}
 		});
+	}
+
+	/** A zoom of 0 is valid, so this tests for presence rather than truthiness. */
+	private hasConfiguredZoom(): boolean {
+		return Number.isNumber(this.config.get('defaultZoom'));
 	}
 
 	private updateZoom(): void {
 		if (!this.map || !this.mapConfig) return;
 
-		const hasConfiguredZoom = this.config.get('defaultZoom') != null;
-		if (hasConfiguredZoom) {
+		if (this.hasConfiguredZoom()) {
 			this.map.setZoom(this.mapConfig.defaultZoom);
 		}
 	}
@@ -320,13 +325,13 @@ export class MapView extends BasesView {
 	private updateCenter(): void {
 		if (!this.map || !this.mapConfig) return;
 
-		const hasConfiguredCenter = this.mapConfig.center[0] !== 0 || this.mapConfig.center[1] !== 0;
-		if (hasConfiguredCenter) {
+		const configuredCenter = this.mapConfig.center;
+		if (configuredCenter) {
 			// Only recenter if the evaluated coordinates actually changed
 			const currentCenter = this.map.getCenter();
 			if (!currentCenter) return; // Map not fully initialized yet
 
-			const targetCenter = toLngLat(this.mapConfig.center);
+			const targetCenter = toLngLat(configuredCenter);
 			const centerActuallyChanged = Math.abs(currentCenter.lng - targetCenter[0]) > 0.00001 ||
 				Math.abs(currentCenter.lat - targetCenter[1]) > 0.00001;
 			if (centerActuallyChanged) {
@@ -499,7 +504,8 @@ export class MapView extends BasesView {
 		return [];
 	}
 
-	private getCenterFromConfig(): [number, number] {
+	/** Returns null when no usable center is configured, so [0, 0] stays a real center. */
+	private getCenterFromConfig(): [number, number] | null {
 		let centerConfig: Value | null = null;
 
 		try {
@@ -511,11 +517,11 @@ export class MapView extends BasesView {
 		// Fall back to the raw config value, which also supports the legacy string format
 		if (!centerConfig || Value.equals(centerConfig, NullValue.value)) {
 			const centerConfigStr = this.config.get('center');
-			if (!String.isString(centerConfigStr)) return DEFAULT_MAP_CENTER;
+			if (!String.isString(centerConfigStr)) return null;
 			centerConfig = new StringValue(centerConfigStr);
 		}
 
-		return coordinateFromValue(centerConfig) || DEFAULT_MAP_CENTER;
+		return coordinateFromValue(centerConfig);
 	}
 
 	private getConfigSnapshot(): string {
