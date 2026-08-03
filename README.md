@@ -1,7 +1,3 @@
-Requires [Obsidian 1.13.1](https://obsidian.md/changelog/) or later. This project demonstrates the Obsidian Bases API that allows plugin developers to create new view types.
-
-## Map view for Obsidian Bases
-
 Adds a [map layout](https://obsidian.md/help/bases/views/map) to [Obsidian Bases](https://obsidian.md/help/bases) so you can display notes as an interactive map view.
 
 ![Map view for Obsidian Bases](/images/map-view.png)
