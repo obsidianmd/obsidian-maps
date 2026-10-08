@@ -5,6 +5,8 @@ export interface MapConfig {
 	coordinatesProp: BasesPropertyId | null;
 	markerIconProp: BasesPropertyId | null;
 	markerColorProp: BasesPropertyId | null;
+	clusterMarkers: boolean;
+	clusterRadius: number;
 	mapHeight: number;
 	defaultZoom: number;
 	/** null when no center is configured, which is distinct from a center of [0, 0]. */
@@ -30,4 +32,3 @@ export interface MapMarkerProperties {
 	entryIndex: number;
 	icon: string; // Composite image key combining icon and color
 }
-

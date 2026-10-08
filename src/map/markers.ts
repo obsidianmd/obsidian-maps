@@ -1,9 +1,10 @@
-import { App, BasesEntry, BasesPropertyId, Keymap, Menu, setIcon } from 'obsidian';
+import { App, BasesEntry, BasesPropertyId, Menu, setIcon } from 'obsidian';
 import { Map as MapLibreMap, LngLatBounds, GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
 import type { Feature } from 'geojson';
 import { MapConfig, MapMarker, MapMarkerProperties } from './types';
 import { coordinateFromValue, formatCoordinates, toLngLat } from './utils';
 import { PopupManager } from './popup';
+import { ClusterNote } from './cluster-notes-view';
 
 const DEFAULT_MARKER_COLOR = 'var(--bases-map-marker-background)';
 
@@ -25,7 +26,7 @@ export class MarkerManager {
 	// Interactions are layer-scoped and survive setStyle, so they bind only once
 	private interactionsBound = false;
 	private popupManager: PopupManager;
-	private onOpenFile: (path: string, newLeaf: boolean) => void;
+	private onShowClusterNotes: (notes: ClusterNote[], coordinates: [number, number]) => void;
 	private getData: () => MarkerData | null;
 	private getMapConfig: () => MapConfig | null;
 	private getDisplayName: (prop: BasesPropertyId) => string;
@@ -34,7 +35,7 @@ export class MarkerManager {
 		app: App,
 		mapEl: HTMLElement,
 		popupManager: PopupManager,
-		onOpenFile: (path: string, newLeaf: boolean) => void,
+		onShowClusterNotes: (notes: ClusterNote[], coordinates: [number, number]) => void,
 		getData: () => MarkerData | null,
 		getMapConfig: () => MapConfig | null,
 		getDisplayName: (prop: BasesPropertyId) => string
@@ -42,7 +43,7 @@ export class MarkerManager {
 		this.app = app;
 		this.mapEl = mapEl;
 		this.popupManager = popupManager;
-		this.onOpenFile = onOpenFile;
+		this.onShowClusterNotes = onShowClusterNotes;
 		this.getData = getData;
 		this.getMapConfig = getMapConfig;
 		this.getDisplayName = getDisplayName;
@@ -109,6 +110,12 @@ export class MarkerManager {
 		// Update or create the markers source
 		const source = this.map.getSource<GeoJSONSource>('markers');
 		if (source) {
+			source.setClusterOptions({
+				cluster: mapConfig.clusterMarkers,
+				clusterRadius: mapConfig.clusterRadius,
+				// Keep identical coordinates grouped so a click can list their notes.
+				clusterMaxZoom: 24,
+			});
 			source.setData({
 				type: 'FeatureCollection',
 				features,
@@ -117,6 +124,10 @@ export class MarkerManager {
 			// Add source if it doesn't exist
 			this.map.addSource('markers', {
 				type: 'geojson',
+				cluster: mapConfig.clusterMarkers,
+				clusterRadius: mapConfig.clusterRadius,
+				// Keep identical coordinates grouped so a click can list their notes.
+				clusterMaxZoom: 24,
 				data: {
 					type: 'FeatureCollection',
 					features,
@@ -343,11 +354,45 @@ export class MarkerManager {
 	private addMarkerLayers(): void {
 		if (!this.map) return;
 
+		this.map.addLayer({
+			id: 'marker-clusters',
+			type: 'circle',
+			source: 'markers',
+			filter: ['has', 'point_count'],
+			paint: {
+				'circle-color': this.resolveColor('var(--interactive-accent)'),
+				'circle-radius': [
+					'interpolate', ['linear'], ['get', 'point_count'],
+					2, 16,
+					50, 22,
+					500, 28,
+				],
+				'circle-stroke-color': this.resolveColor('var(--background-primary)'),
+				'circle-stroke-width': 2,
+			},
+		});
+
+		this.map.addLayer({
+			id: 'marker-cluster-count',
+			type: 'symbol',
+			source: 'markers',
+			filter: ['has', 'point_count'],
+			layout: {
+				'text-field': ['get', 'point_count_abbreviated'],
+				'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+				'text-size': 12,
+			},
+			paint: {
+				'text-color': this.resolveColor('var(--bases-map-marker-icon-color)'),
+			},
+		});
+
 		// Add a single symbol layer for composite marker images
 		this.map.addLayer({
 			id: 'marker-pins',
 			type: 'symbol',
 			source: 'markers',
+			filter: ['!', ['has', 'point_count']],
 			layout: {
 				'icon-image': ['get', 'icon'],
 				'icon-size': [
@@ -412,13 +457,27 @@ export class MarkerManager {
 			this.popupManager.hidePopup();
 		});
 
+		this.map.on('mouseenter', 'marker-clusters', () => {
+			this.map?.getCanvas().addClass('is-over-marker');
+		});
+
+		this.map.on('mouseleave', 'marker-clusters', () => {
+			this.map?.getCanvas().removeClass('is-over-marker');
+		});
+
+		this.map.on('click', 'marker-clusters', (e: MapLayerMouseEvent) => {
+			void this.handleClusterClick(e);
+		});
+
 		// Handle click to open file
 		this.map.on('click', 'marker-pins', (e: MapLayerMouseEvent) => {
 			const markerData = this.markerFromEvent(e);
 			if (!markerData) return;
 
-			const newLeaf = e.originalEvent ? Boolean(Keymap.isModEvent(e.originalEvent)) : false;
-			this.onOpenFile(markerData.entry.file.path, newLeaf);
+			this.onShowClusterNotes([{
+				path: markerData.entry.file.path,
+				name: markerData.entry.file.basename,
+			}], markerData.coordinates);
 		});
 
 		// Handle right-click context menu
@@ -466,10 +525,39 @@ export class MarkerManager {
 		});
 	}
 
+	private async handleClusterClick(e: MapLayerMouseEvent): Promise<void> {
+		if (!this.map || !e.features?.[0]) return;
+
+		const rawProperties: unknown = e.features[0].properties;
+		if (typeof rawProperties !== 'object' || rawProperties === null) return;
+
+		const properties = rawProperties as Record<string, unknown>;
+		const clusterId = properties.cluster_id;
+		const pointCount = properties.point_count;
+		if (typeof clusterId !== 'number' || typeof pointCount !== 'number') return;
+
+		const source = this.map.getSource<GeoJSONSource>('markers');
+		if (!source) return;
+
+		// Selecting a cluster always opens its note list. The user controls map
+		// scale independently with the usual map gestures.
+		const leaves = await source.getClusterLeaves(clusterId, pointCount, 0);
+		const notes = leaves
+			.map(leaf => {
+				const entryIndex: unknown = leaf.properties?.entryIndex;
+				const entry = typeof entryIndex === 'number' ? this.markers[entryIndex]?.entry : null;
+				return entry ? { path: entry.file.path, name: entry.file.basename } : null;
+			})
+			.filter((note): note is ClusterNote => note != null);
+
+		if (notes.length > 0) {
+			this.onShowClusterNotes(notes, [e.lngLat.lat, e.lngLat.lng]);
+		}
+	}
+
 	/** Properties already represented by the marker itself, so popups skip them. */
 	private getMarkerDrivenProps(mapConfig: MapConfig): BasesPropertyId[] {
 		return [mapConfig.coordinatesProp, mapConfig.markerIconProp, mapConfig.markerColorProp]
 			.filter((prop): prop is BasesPropertyId => prop != null);
 	}
 }
-

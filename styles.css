@@ -82,6 +82,51 @@ body {
 	}
 }
 
+.bases-map-cluster-notes-view {
+	box-sizing: border-box;
+	padding: var(--size-4-3);
+	height: 100%;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	overflow: hidden;
+
+	h6 {
+		margin: 0;
+	}
+}
+
+.bases-map-cluster-notes-empty,
+.bases-map-cluster-notes-coordinates {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.bases-map-cluster-notes-list {
+	flex: 1 1 auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+	overflow-y: auto;
+	min-height: 0;
+}
+
+.bases-map-cluster-note {
+	flex-shrink: 0;
+	padding: var(--size-4-1) var(--size-4-2);
+	border-radius: var(--radius-s);
+	color: var(--text-normal);
+	text-decoration: none;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
+
+	&:hover {
+		background: var(--background-modifier-hover);
+	}
+}
+
 .bases-map-popup-property {
 	font-size: var(--font-ui-small);
 	&:last-child {

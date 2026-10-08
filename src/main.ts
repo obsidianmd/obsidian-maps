@@ -2,12 +2,16 @@ import { Plugin, Notice, Platform } from 'obsidian';
 import { MapView } from './map-view';
 import { MapSettings, DEFAULT_SETTINGS, MapSettingTab } from './settings';
 import { GEOLOCATION_OPTIONS, geolocationErrorMessage } from './map/utils';
+import { ClusterNotesView, CLUSTER_NOTES_VIEW_TYPE, ClusterNote, ClusterSelection } from './map/cluster-notes-view';
 
 export default class ObsidianMapsPlugin extends Plugin {
 	settings: MapSettings;
+	private clusterSelection: ClusterSelection | null = null;
 
 	async onload() {
 		await this.loadSettings();
+
+		this.registerView(CLUSTER_NOTES_VIEW_TYPE, (leaf) => new ClusterNotesView(leaf, this));
 
 		this.registerBasesView('map', {
 			name: 'Map',
@@ -28,6 +32,27 @@ export default class ObsidianMapsPlugin extends Plugin {
 		}
 
 		this.addSettingTab(new MapSettingTab(this.app, this));
+	}
+
+	getClusterSelection(): ClusterSelection | null {
+		return this.clusterSelection;
+	}
+
+	async showClusterNotes(notes: ClusterNote[], coordinates: [number, number]): Promise<void> {
+		this.clusterSelection = { notes, coordinates };
+
+		let leaf = this.app.workspace.getLeavesOfType(CLUSTER_NOTES_VIEW_TYPE)[0];
+		if (!leaf) {
+			const rightLeaf = this.app.workspace.getRightLeaf(false);
+			if (!rightLeaf) return;
+			leaf = rightLeaf;
+			await leaf.setViewState({ type: CLUSTER_NOTES_VIEW_TYPE, active: true });
+		}
+
+		await this.app.workspace.revealLeaf(leaf);
+		if (leaf.view instanceof ClusterNotesView) {
+			leaf.view.renderSelection(this.clusterSelection);
+		}
 	}
 
 	async loadSettings() {

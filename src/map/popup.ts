@@ -185,4 +185,3 @@ export class PopupManager {
 		return true;
 	}
 }
-

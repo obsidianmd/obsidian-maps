@@ -27,6 +27,8 @@ export const MapViewType = 'map';
 /** Raw config values watched for changes. Values stay unknown; only equality matters. */
 interface ConfigSnapshot {
 	center: unknown;
+	clusterMarkers: unknown;
+	clusterRadius: unknown;
 	defaultZoom: unknown;
 	minZoom: unknown;
 	maxZoom: unknown;
@@ -72,7 +74,7 @@ export class MapView extends BasesView {
 			this.app,
 			this.mapEl,
 			this.popupManager,
-			(path, newLeaf) => void this.app.workspace.openLinkText(path, '', newLeaf),
+			(notes, coordinates) => { void this.plugin.showClusterNotes(notes, coordinates); },
 			() => this.data,
 			() => this.mapConfig,
 			(prop) => this.config.getDisplayName(prop)
@@ -424,6 +426,9 @@ export class MapView extends BasesView {
 		const coordinatesProp = this.config.getAsPropertyId('coordinates');
 		const markerIconProp = this.config.getAsPropertyId('markerIcon');
 		const markerColorProp = this.config.getAsPropertyId('markerColor');
+		const clusterMarkersValue = this.config.get('clusterMarkers');
+		const clusterMarkers = typeof clusterMarkersValue === 'boolean' ? clusterMarkersValue : true;
+		const clusterRadius = this.getNumericConfig('clusterRadius', 50, 10, 200);
 
 		// Load numeric configurations with validation
 		const minZoom = this.getNumericConfig('minZoom', 0, 0, 24);
@@ -475,6 +480,8 @@ export class MapView extends BasesView {
 			coordinatesProp,
 			markerIconProp,
 			markerColorProp,
+			clusterMarkers,
+			clusterRadius,
 			mapHeight,
 			defaultZoom,
 			center,
@@ -534,6 +541,8 @@ export class MapView extends BasesView {
 		// Create a snapshot of config values that affect map display
 		return {
 			center: this.config.get('center'),
+			clusterMarkers: this.config.get('clusterMarkers'),
+			clusterRadius: this.config.get('clusterRadius'),
 			defaultZoom: this.config.get('defaultZoom'),
 			minZoom: this.config.get('minZoom'),
 			maxZoom: this.config.get('maxZoom'),
@@ -700,6 +709,21 @@ export class MapView extends BasesView {
 				displayName: 'Markers',
 				type: 'group',
 				items: [
+					{
+						displayName: 'Cluster nearby markers',
+						type: 'toggle',
+						key: 'clusterMarkers',
+						default: true,
+					},
+					{
+						displayName: 'Clustering radius (pixels)',
+						type: 'slider',
+						key: 'clusterRadius',
+						min: 10,
+						max: 200,
+						step: 5,
+						default: 50,
+					},
 					{
 						displayName: 'Marker coordinates',
 						type: 'property',
